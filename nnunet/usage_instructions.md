@@ -3,6 +3,12 @@
 In this file necessary steps are described to preprocess the data, train the nnU-Net model and evaluate the results.
 For this project, you will need nnU-net 
 
+## Download CAMUS dataset 
+The CAMUS dataset can be downloaded from:
+https://humanheart-project.creatis.insa-lyon.fr/database/#collection/6373703d73e9f0047faa1bc8
+
+Extract the folder and put the resulting 
+``` database_nifti ``` folder in the ``` local_data ``` folder of this repository.
 
 ## Set up environment
 
