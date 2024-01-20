@@ -1,0 +1,18 @@
+NETWORK:
+  ACTIVATION: 'relu'
+  NORM_INPUT: false
+  NB_CLASSES: 4
+
+DATA:
+    DATA_LOADER_PARAMS: {'batch_size': 50, 'shuffle': True,'num_workers': 1}
+    INPUT_DIR: ''
+    SPLITS_LOC: ''
+    SPLIT: 0
+
+TRAINING:
+    LR: 0.0001
+    EPOCHS: 50
+
+EXPERIMENTS_DIR: ''
+
+
