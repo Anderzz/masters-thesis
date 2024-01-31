@@ -2,3 +2,5 @@
 local_data/database_nifti/
 
 .idea/
+
+nnunet/experiments/
