@@ -36,9 +36,9 @@ def get_splits(split_nb,splits_loc):
                        | |-...
     :return: train, validation and test splits
     '''
-    train_loc = os.path.join(str(splits_loc), f'subGroup{split_nb}_testing.txt')
+    train_loc = os.path.join(str(splits_loc), f'subGroup{split_nb}_training.txt')
     val_loc = os.path.join(str(splits_loc), f'subGroup{split_nb}_validation.txt')
-    test_loc = os.path.join(str(splits_loc), f'subGroup{split_nb}_training.txt')
+    test_loc = os.path.join(str(splits_loc), f'subGroup{split_nb}_testing.txt')
     train_set = text_to_set(train_loc)
     val_set = text_to_set(val_loc)
     test_set = text_to_set(test_loc)
