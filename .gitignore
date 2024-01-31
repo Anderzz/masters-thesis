@@ -4,3 +4,7 @@ local_data/database_nifti/
 .idea/
 
 nnunet/experiments/
+
+unet1/experiments/
+
+unet1/preprocessing_output/

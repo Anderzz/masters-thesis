@@ -1,80 +1,13 @@
-import os
-import numpy as np
 from skimage.io import imread
 import matplotlib.pyplot as plt
 import utils
+import os
 from tqdm import tqdm
-import yaml
-import CONST
 import sys
+import CONST
+import yaml
+import numpy as np
 
-
-def boxplot(metric_values,save_dir,title,ylabel,xticks,save_name,show=True):
-    '''
-    Create boxplot of given metric values and save it to save_dir. The metric can be for example dice scores or
-    hausdorff distances.
-    :param metric_values: list of metric scores. Each list element is a three element list with dice scores for each of the
-                        three class, i.e. [[metric_lv,metric_myo,metric_la],[metric_lv,metric_myo,metric_la],...]
-    :param save_dir: directory to save plot to
-    :param title: title of plot
-    :param ylabel: y-axis label
-    :param xticks: x-axis labels
-    :param show: whether to show plot or not
-    '''
-    # create boxplot of dice scores
-    fig,ax=plt.subplots()
-    ax.boxplot(metric_values)
-    ax.set_title(title)
-    ax.set_ylabel(ylabel)
-    ax.set_xticklabels(xticks)
-    # set limit of y-axis to 0-1
-    ax.set_ylim([0,1])
-    # remove whitespace
-    fig.tight_layout()
-    # save plot
-    fig.savefig(os.path.join(save_dir,save_name))
-    if show:
-        plt.show()
-
-def plot_segmentation(us_image,anno,pred,sample_name,dices,plot_folder,show=False):
-    '''
-    Plot annotation and prediction of a single sample
-    :param us_image: ultrasound image
-    :param anno: annotation of segmentation masks ('ground truth')
-    :param pred: prediction by model
-    :param sample_name: name of sample
-    :param dices: dice scores of prediction compared to annotation. This is a list with dice scores for each of the
-                  three class, i.e. [dice_lv,dice_myo,dice_la]
-    :param plot_folder: folder to save plot to
-    :param show: whether to show plot or not
-    '''
-    # plot anno and pred
-    fig, ax = plt.subplots(1, 2)
-    # visualization paints the segmentation on top of the ultrasound image
-    visual_anno = utils.create_visualization(us_image, anno, labels=[1, 2, 3],
-                                             colors=np.array([(1, 0, 0), (0, 1, 0), (0, 0, 1)]))
-    ax[0].imshow(visual_anno)
-    visual_pred = utils.create_visualization(us_image, pred, labels=[1, 2, 3],
-                                             colors=np.array([(1, 0, 0), (0, 1, 0), (0, 0, 1)]))
-    ax[1].imshow(visual_pred)
-    # set titles
-    ax[0].set_title('Annotation')
-    ax[1].set_title('Prediction')
-    dice_lv, dice_myo, dice_la = dices
-    # set main title
-    fig.suptitle(sample_name[:-4] + '\nDice LV: ' + str(np.round(dice_lv, 2)) +
-                 ', Dice Myo: ' + str(np.round(dice_myo, 2)) +
-                 ', Dice LA: ' + str(np.round(dice_la, 2)))
-    # remove axis
-    ax[0].axis('off')
-    ax[1].axis('off')
-    # remove whitespace
-    fig.tight_layout()
-    # save plot
-    fig.savefig(os.path.join(plot_folder, sample_name))
-    if show:
-        plt.show()
-    plt.close(fig)
 
 def run_eval(config_loc,verbose=True):
     '''
@@ -117,7 +50,7 @@ def run_eval(config_loc,verbose=True):
         dices=[dice_lv,dice_myo,dice_la]
         # add dice to list
         all_dices.append(dices)
-        plot_segmentation(us_image, anno, pred, sample_name, dices, plot_folder)
+        utils.plot_segmentation(us_image, anno, pred, sample_name, dices, plot_folder)
 
     all_dices=np.array(all_dices)
     all_dices_per_class=all_dices.T
@@ -126,7 +59,7 @@ def run_eval(config_loc,verbose=True):
             ', Average Myo Dice: ' + str(np.round(np.mean(all_dices_per_class[1]),2))+\
             ', Average LA Dice: ' + str(np.round(np.mean(all_dices_per_class[2]),2))+\
             '\n'
-    boxplot(all_dices, out_dir, title_dice_scores,
+    utils.boxplot(all_dices, out_dir, title_dice_scores,
             'Dice score',['LV','Myo','LA'],'boxplot_dices.png')
 
 

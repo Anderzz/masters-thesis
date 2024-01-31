@@ -1,82 +1,12 @@
 import nibabel as nib
 import os
-from PIL import Image
-from skimage.transform import resize
 from tqdm import tqdm
 import json
 import sys
 import CONST
 import yaml
 import numpy as np
-
-
-def text_to_set(text_loc):
-    '''
-    Convert text file to set with one element per line
-    :param text_loc: location of text file
-    :return: set with one element per line
-    '''
-    with open(text_loc) as f:
-        content = f.readlines()
-    content = [x.strip() for x in content]
-    return set(content)
-
-def get_splits(split_nb,splits_loc):
-    '''
-    Get train, validation and test splits for a given split number
-    :param split_nb: split number
-    :param splits_loc: location of splits. This folder should have the following structure:
-                       |-subgroups_CAMUS
-                       | |-subGroup0_testing.txt
-                       | |-subGroup0_training.txt
-                       | |-subGroup0_validation.txt
-                       | |-subGroup1_testing.txt
-                       | |-subGroup1_training.txt
-                       | |-subGroup1_validation.txt
-                       | |-...
-    :return: train, validation and test splits
-    '''
-    train_loc = os.path.join(str(splits_loc), f'subGroup{split_nb}_training.txt')
-    val_loc = os.path.join(str(splits_loc), f'subGroup{split_nb}_validation.txt')
-    test_loc = os.path.join(str(splits_loc), f'subGroup{split_nb}_testing.txt')
-    train_set = text_to_set(train_loc)
-    val_set = text_to_set(val_loc)
-    test_set = text_to_set(test_loc)
-    return train_set,val_set,test_set
-
-
-
-def resize_image(numpy_img,resize_dim=(256,256),annotation=False,convert_to_png=True):
-    '''
-    Resize numpy image to given dimensions
-    :param numpy_img: numpy image to resize
-    :param resize_dim: dimensions to resize to
-    :param annotation: whether the image is an annotation or not. If True, the image is converted to one-hot encoding
-                       before resizing, and converted back to an annotation after resizing to avoid rounding artefacts.
-    :param convert_to_png: whether to convert the resized numpy image to a png image or not
-    :return: resized numpy image or resized png image
-    '''
-    if annotation:
-        # convert labels to one-hot encoding
-        # this avoids problems with resizing and rounding errors creating artefacts
-        numpy_img_one_hot=np.zeros((numpy_img.shape[0],numpy_img.shape[1],4))
-        for row in range(numpy_img.shape[0]):
-            for col in range(numpy_img.shape[1]):
-                numpy_img_one_hot[row,col,int(numpy_img[row,col])]=1
-        #resize each channel separately
-        numpy_image_resized=np.zeros((resize_dim[0],resize_dim[1],4))
-        for i in range(1,4):
-            numpy_image_resized[:,:,i]=np.round(resize(numpy_img_one_hot[:,:,i],resize_dim))
-        # recombine to one hot encoding
-        numpy_image_resized=np.argmax(numpy_image_resized,axis=2).astype(np.uint8)
-    else:
-        numpy_image_resized=resize(numpy_img,resize_dim)
-    if convert_to_png:
-        img_data = Image.fromarray(numpy_image_resized)
-        img_data_grayscale = img_data.convert("L")
-        return img_data_grayscale
-    else:
-        return numpy_image_resized
+import utils
 
 
 def create_nnunet_folder_if_not_exist(nnunet_folder_loc):
@@ -120,7 +50,7 @@ def convert_to_nnunet_format(config_loc, verbose=True):
     if verbose:
         print('Running evaluation with config file: ' + config_loc)
     config = yaml.load(open(config_loc), Loader=yaml.loader.SafeLoader)
-    splits=get_splits(config['SPLIT_NB'], config['CAMUS_SPLITS_LOCATION'])
+    splits=utils.get_splits(config['SPLIT_NB'], config['CAMUS_SPLITS_LOCATION'])
     train_set,val_set,test_set=splits
     nnunet_dataset_id=config['NNUNET_DATASET_ID']
     dataset_id_str=str(nnunet_dataset_id).zfill(3)
@@ -147,10 +77,10 @@ def convert_to_nnunet_format(config_loc, verbose=True):
                     file_us_img=file.replace('_gt','')
                     nii_img_us  = nib.load(os.path.join(patient_path,file_us_img))
                     us_npy = nii_img_us.get_fdata()
-                    us_png=resize_image(us_npy)
+                    us_png=utils.resize_image(us_npy)
                     nii_img_gt  = nib.load(file_path)
                     gt_npy = nii_img_gt.get_fdata()
-                    gt_png=resize_image(gt_npy,annotation=True)
+                    gt_png=utils.resize_image(gt_npy,annotation=True)
                     save_name=file_us_img.replace('.nii.gz','')
                     save_name_us=save_name+'_0000.png'
                     save_name_gt=save_name+'.png'
