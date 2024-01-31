@@ -8,7 +8,7 @@
         "Myocardium": 2,
         "Atrium": 3
     },
-    "numTraining": 400,
+    "numTraining": 1800,
     "file_ending": ".png",
-    "name": "Dataset105_CAMUS_trainval"
+    "name": "Dataset107_CAMUS_trainval"
 }

@@ -1,0 +1,24 @@
+# Image size to used in the model
+IMG_SIZE: 256,256
+
+# Split number of CAMUS dataset to use
+SPLIT_NB: 1
+
+# path to the CAMUS dataset in nifti format
+CAMUS_DATA_LOCATION: '../local_data/database_nifti'
+
+# path to the CAMUS dataset subgroups info defining the cross validation splits
+CAMUS_SPLITS_LOCATION: '../local_data/subgroups_CAMUS'
+
+# path to your nnUNet_raw folder
+NNUNET_RAW_LOC: 'FILL_ME_IN'
+
+# next available dataset number in your nnUNet_raw folder
+NNUNET_DATASET_ID: 107
+
+# relative output path for where to store the splits.json file generated during training
+SPLITS_OUT_LOC: 'preprocessing_output'
+
+
+
+

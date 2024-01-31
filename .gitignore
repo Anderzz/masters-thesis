@@ -127,3 +127,6 @@ cython_debug/
 
 
 .idea/
+
+nnunet/experiments/
+nnunet/results/
