@@ -1,0 +1,8 @@
+# nnU-Net dirs:
+INPUT_DIR_IMAGES: '/home/gillesv/data/nnUNet_raw/Dataset106_CAMUS_test/imagesTr'
+INPUT_DIR_LABELS: '/home/gillesv/data/nnUNet_raw/Dataset106_CAMUS_test/labelsTr'
+INFERENCE_DIR: '/home/gillesv/data/nnUNet_results/Dataset105_CAMUS_trainval/Dataset106_CAMUS_test_inference_pp'
+
+# The directory name where the output plots will be saved. This directory will be created in the CONST.EXPERIMENTS_DIR
+# directory.
+REL_OUT_DIR: 'debug'
