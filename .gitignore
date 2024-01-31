@@ -130,3 +130,7 @@ cython_debug/
 
 nnunet/experiments/
 nnunet/results/
+
+unet1/experiments/
+
+unet1/preprocessing_output/

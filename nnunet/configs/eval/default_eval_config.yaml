@@ -1,0 +1,7 @@
+# nnU-Net dirs:
+INPUT_DIR_IMAGES: 'FILL_ME_IN'
+INPUT_DIR_LABELS: 'FILL_ME_IN'
+INFERENCE_DIR: 'FILL_ME_IN'
+
+# The directory name where the output plots will be saved. This directory will be created in the EXPERIMENTS_DIR directory.
+REL_OUT_DIR: 'FILL_ME_IN'

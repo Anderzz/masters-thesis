@@ -48,8 +48,11 @@ You should modify the default parameters:
 
 After changing these parameters, run the preprocessing script.
 ```bash
-python preprocessing.py
+python preprocessing.py path/to/your/config/file.yaml
 ```
+The default config file is
+[configs/preprocessing/default_preprocessing_config.yaml](configs/preprocessing/default_preprocessing_config.yaml).
+This will be used if you do not specify a config file as argument to the preprocessing script.
 
 NOTE: make sure you run in the correct environment (see above).
 
@@ -141,4 +144,10 @@ Execute the commands below in an environment where you installed nnU-Net.
 
 ## Evaluate
 
-TODO
+Run the evaluation script:
+```bash
+python evaluate.py path/to/your/config/file.yaml
+```
+The default config file is
+[configs/eval/default_eval_config.yaml](configs/eval/default_eval_config.yaml).
+This will be used if you do not specify a config file as argument to the evaluation script.

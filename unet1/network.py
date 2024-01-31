@@ -2,6 +2,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
+
+
 def get_activation(activation):
     if activation == 'gelu':
         return nn.GELU()
@@ -16,6 +19,11 @@ def get_activation(activation):
 
 
 def make_batch(x):
+    '''
+    Make batch dimension if input is not batched
+    :param x: input tensor
+    :return: input tensor with batch dimension and boolean indicating whether input was already a batch or not.
+    '''
     if len(x.shape) == 3:
         x = x.unsqueeze(0)
         batch = False
@@ -26,6 +34,10 @@ def make_batch(x):
     return x, batch
 
 class ConvolutionBlock(nn.Module):
+    '''
+    Convolution block consisting of two convolutional layers with optional batch normalization and
+    given activation function.
+    '''
     def __init__(self, in_channels, out_channels, kernel_size=(3, 3), batch_normalization=False, activation='relu'):
         super(ConvolutionBlock, self).__init__()
         self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size,
@@ -51,6 +63,13 @@ class ConvolutionBlock(nn.Module):
 
 
 class unet1(nn.Module):
+    '''
+    The netowrk architecture is based on the U-Net 1 architecture proposed in the paper:
+    Leclerc S, Smistad E, Pedrosa J, Ostvik A, Cervenansky F, Espinosa F, Espeland T, Berg EAR, Jodoin PM, Grenier T,
+    Lartizien C, Dhooge J, Lovstakken L, Bernard O. Deep Learning for Segmentation Using an Open Large-Scale Dataset
+    in 2D Echocardiography. IEEE Trans Med Imaging. 2019 Sep;38(9):2198-2210. doi: 10.1109/TMI.2019.2900516.
+    Epub 2019 Feb 22. PMID: 30802851.
+    '''
     def __init__(self, input_shape=(1, 256,256), activation_inter_layer='relu', normalize_input=False,
                  normalize_inter_layer=False,nb_classes=4, final_activation='softmax'):
         super(unet1, self).__init__()
