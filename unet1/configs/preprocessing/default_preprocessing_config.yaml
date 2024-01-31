@@ -1,0 +1,22 @@
+# Image size to used in the model
+IMG_SIZE: 256,256
+
+# Split number of CAMUS dataset to use
+SPLIT_NB: 1
+
+# path to the CAMUS dataset in nifti format
+CAMUS_DATA_LOCATION: '../local_data/database_nifti'
+
+# path to the CAMUS dataset subgroups info defining the cross validation splits
+CAMUS_SPLITS_LOCATION: '../local_data/subgroups_CAMUS'
+
+# relative output path for where to store the preprocessed data
+PREPROCESSING_OUT_LOC: 'preprocessing_output/cv1'
+
+
+
+
+
+
+
+
