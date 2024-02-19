@@ -68,6 +68,8 @@ class Labeled_dataset(torch.utils.data.Dataset):
         # Generate data
         file_loc= self.index_to_file_dict[index]
         X,y = np.load(file_loc,allow_pickle=True)
+        X = X.astype(np.float32)
+        y = y.astype(np.float32)
         if self.return_file_loc:
             return X,y,file_loc
         else:

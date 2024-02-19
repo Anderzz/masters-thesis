@@ -87,7 +87,7 @@ def train(config_loc,verbose=True):
     input_shape_tuple=tuple([int(x) for x in input_shape.split(',')])
     model = network.unet1(input_shape_tuple)
     model = model.to(device)
-    model.double()
+    #model.double()
     if verbose:
         total_nb_params = sum(p.numel() for p in model.parameters())
         print('total number of params: ' + str(total_nb_params))
