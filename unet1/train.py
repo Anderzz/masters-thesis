@@ -83,6 +83,7 @@ def train(config_loc, verbose=True):
     train_set, val_set, test_set = splits
     train_val_loc = os.path.join(config["PREPROCESSING_OUT_LOC"], "train_val")
     device = utils.set_up_gpu(config["GPU"])
+    print(f'Running on device: {device} for {config["TRAINING"]["NB_EPOCHS"]} epochs.')
     output_dir = os.path.join(CONST.EXPERIMENTS_DIR, config["REL_OUT_DIR"])
     loss_fn = get_loss(config["TRAINING"]["LOSS"], device)
     input_shape = config["MODEL"]["INPUT_SHAPE"]

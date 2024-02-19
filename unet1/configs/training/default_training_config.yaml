@@ -2,27 +2,27 @@
 SPLIT_NB: 1
 
 # path to the CAMUS dataset in nifti format
-CAMUS_DATA_LOCATION: '../local_data/database_nifti'
+CAMUS_DATA_LOCATION: "../local_data/database_nifti"
 
 # path to the CAMUS dataset subgroups info defining the cross validation splits
-CAMUS_SPLITS_LOCATION: '../local_data/subgroups_CAMUS'
+CAMUS_SPLITS_LOCATION: "../local_data/subgroups_CAMUS"
 
 # relative output path for where to store the preprocessed data
-PREPROCESSING_OUT_LOC: 'preprocessing_output/cv1'
+PREPROCESSING_OUT_LOC: "preprocessing_output/cv1"
 
 # Which GPU to use (if available)
-GPU: 1
+GPU: 0
 
 TRAINING:
   AUGMENTATION_PARAMS: []
   NB_EPOCHS: 100
-  LOSS: 'DICE'
-  OPTIMIZER: 'Adam'
+  LOSS: "DICE"
+  OPTIMIZER: "Adam"
   LR: 0.001
   BATCH_SIZE: 32
-  DATA_LOADER_PARAMS: {'batch_size': 32, 'shuffle': True,'num_workers': 1}
+  DATA_LOADER_PARAMS: { "batch_size": 8, "shuffle": True, "num_workers": 4 }
 
-REL_OUT_DIR: 'vanilla_unet1'
+REL_OUT_DIR: "vanilla_unet1"
 
 MODEL:
   INPUT_SHAPE: 1,256,256
