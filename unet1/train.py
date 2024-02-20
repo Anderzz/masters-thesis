@@ -1,6 +1,7 @@
 import yaml
 import sys
 import CONST
+from datetime import datetime
 from data_loading import data_loader
 import torch
 import os
@@ -9,6 +10,8 @@ import utils
 from torch.utils.tensorboard import SummaryWriter
 import network
 from tqdm import tqdm
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
 
 
 def run_model(dataloader, optimizer, model, loss_fn, train=True, device=None):
@@ -37,7 +40,7 @@ def run_model(dataloader, optimizer, model, loss_fn, train=True, device=None):
         else:
             model.eval()
         # add channel dimension to inputs
-        inputs = inputs.unsqueeze(1)
+        # inputs = inputs.unsqueeze(1)
         predictions = model.forward(inputs)
         # Compute the loss and its gradients
         if not train:
@@ -84,14 +87,44 @@ def train(config_loc, verbose=True):
     train_val_loc = os.path.join(config["PREPROCESSING_OUT_LOC"], "train_val")
     device = utils.set_up_gpu(config["GPU"])
     print(f'Running on device: {device} for {config["TRAINING"]["NB_EPOCHS"]} epochs.')
-    output_dir = os.path.join(CONST.EXPERIMENTS_DIR, config["REL_OUT_DIR"])
+
+    # Create a unique directory for this run based on the current timestamp
+    current_time = datetime.now().strftime("%Y%m%d-%H%M%S")
+    output_dir = os.path.join(
+        CONST.EXPERIMENTS_DIR, config["REL_OUT_DIR"], current_time
+    )
+    os.makedirs(output_dir, exist_ok=True)  # Ensure the directory exists
+
+    # Create a separate logs directory within the unique run directory
+    logs_dir = os.path.join(output_dir, "logs")
+    os.makedirs(logs_dir, exist_ok=True)
+
     loss_fn = get_loss(config["TRAINING"]["LOSS"], device)
     input_shape = config["MODEL"]["INPUT_SHAPE"]
     # convert string to tuple
     input_shape_tuple = tuple([int(x) for x in input_shape.split(",")])
     model = network.unet1(input_shape_tuple)
     model = model.to(device)
-    #model.double()
+    # model.double()
+    train_transform = A.Compose(
+        [
+            A.ShiftScaleRotate(
+                shift_limit=0.2, scale_limit=0.2, rotate_limit=10, p=0.5
+            ),
+            A.RandomGamma(gamma_limit=(80, 120), p=0.5),
+            A.GaussNoise(var_limit=(10.0, 50.0), p=0.5),
+            # A.ImageCompression(quality_lower=60, quality_upper=100, p=0.5),
+            # A.RandomBrightnessContrast(brightness_limit=0.3, contrast_limit=0.3, p=0.5),
+            A.Normalize(mean=(0.485), std=(0.229)),
+            ToTensorV2(),
+        ]
+    )
+    val_transform = A.Compose(
+        [
+            A.Normalize(mean=(0.485), std=(0.229)),
+            ToTensorV2(),
+        ]
+    )
     if verbose:
         total_nb_params = sum(p.numel() for p in model.parameters())
         print("total number of params: " + str(total_nb_params))
@@ -99,10 +132,13 @@ def train(config_loc, verbose=True):
         train_set,
         train_val_loc,
         augmentation_params=config["TRAINING"]["AUGMENTATION_PARAMS"],
+        transform=train_transform,
     )
     data_loader_params = config["TRAINING"]["DATA_LOADER_PARAMS"]
     dataloader_train = torch.utils.data.DataLoader(dataset_train, **data_loader_params)
-    dataset_validation = data_loader.Labeled_dataset(val_set, train_val_loc)
+    dataset_validation = data_loader.Labeled_dataset(
+        val_set, train_val_loc, transform=val_transform
+    )
     dataloader_validation = torch.utils.data.DataLoader(
         dataset_validation, **data_loader_params
     )

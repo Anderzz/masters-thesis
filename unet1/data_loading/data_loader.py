@@ -3,6 +3,8 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 import utils
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
 
 
 class Labeled_dataset(torch.utils.data.Dataset):
@@ -13,6 +15,7 @@ class Labeled_dataset(torch.utils.data.Dataset):
         patient_list,
         input_dir,
         augmentation_params=None,
+        transform=None,
         verbose=True,
         return_file_loc=False,
     ):
@@ -30,12 +33,18 @@ class Labeled_dataset(torch.utils.data.Dataset):
         self.input_dir = input_dir
         self.init_index_to_file_dict()
         self.return_file_loc = return_file_loc
+        self.transform = transform
         if augmentation_params is None:
             self.augmentations = None
         else:
             self.augmentations = augmentations.get_augmentation_funcs(
                 augmentation_params
             )
+        # list the transforms
+        if self.transform is not None:
+            print("Transforms:")
+            for transform in self.transform:
+                print(f"    {transform.__class__.__name__}")
 
     def __len__(self):
         "Denotes the total number of patients"
@@ -61,10 +70,17 @@ class Labeled_dataset(torch.utils.data.Dataset):
         if self.augmentations is not None:
             X, y = augmentations.apply_augmentations((X, y), self.augmentations)
 
-        if isinstance(X, list):
-            X = [torch.from_numpy(x) for x in X]
-        else:
-            X = torch.from_numpy(X)
+        # this is where the actual augmentation happens
+        if self.transform is not None:
+            transformed = self.transform(image=X, mask=y)
+            X = transformed["image"]
+            y = transformed["mask"]
+
+        # if isinstance(X, list):
+        #     X = [torch.from_numpy(x) for x in X]
+        # else:
+        #     X = torch.from_numpy(X)
+
         if self.return_file_loc:
             return X, y, file_loc
         else:
@@ -111,21 +127,42 @@ if __name__ == "__main__":
     input_dir = "preprocessing_output/cv1/train_val"
     splits = utils.get_splits(1, "../local_data/subgroups_CAMUS")
     train_set, val_set, test_set = splits
-    input_dir = "preprocessing_output/cv1/train_val"
     params = {"batch_size": 2, "shuffle": True, "num_workers": 1}
     augmentation_params = []
+    train_transform = A.Compose(
+        [
+            A.ShiftScaleRotate(
+                shift_limit=0.2, scale_limit=0.2, rotate_limit=10, p=0.5
+            ),
+            A.RandomGamma(gamma_limit=(80, 120), p=0.5),
+            A.GaussNoise(var_limit=(10.0, 50.0), p=0.5),
+            # A.ImageCompression(quality_lower=60, quality_upper=100, p=0.5),
+            # A.RandomBrightnessContrast(brightness_limit=0.3, contrast_limit=0.3, p=0.5),
+            A.Normalize(mean=(0.485), std=(0.229)),
+            ToTensorV2(),
+        ]
+    )
     dataset_train_pytorch = Labeled_dataset(
-        train_set, input_dir, augmentation_params=augmentation_params, verbose=True
+        train_set,
+        input_dir,
+        augmentation_params=augmentation_params,
+        verbose=True,
+        transform=train_transform,
     )
     dataloader = torch.utils.data.DataLoader(dataset_train_pytorch, **params)
     train_iterator_pytorch = iter(dataloader)
+    X, y = next(train_iterator_pytorch)
+    print(X.shape)
+    print(y.shape)
+    print(X[0].min(), X[0].max())
+    print(y[0].min(), y[0].max())
     # plotting some samples
     for i in range(3):
         X, y = next(train_iterator_pytorch)
-        plt.imshow(X[0].T)
+        plt.imshow(X[0].T, cmap="gray")
         plt.savefig("test.png")
         plt.show()
-        plt.imshow(y[0].T)
+        plt.imshow(y[0].T, cmap="gray")
         plt.show()
         visualization = utils.create_visualization(X[0].T, y[0].T)
         plt.imshow(visualization)
