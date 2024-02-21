@@ -20,12 +20,13 @@ TESTING:
   OPTIMIZER: "Adam"
   LR: 0.001
   BATCH_SIZE: 32
-  DATA_LOADER_PARAMS: { "batch_size": 32, "shuffle": True, "num_workers": 8 }
+  DATA_LOADER_PARAMS: { "batch_size": 1, "shuffle": True, "num_workers": 8 }
 
 REL_OUT_DIR: "vanilla_unet1"
 
 MODEL:
   INPUT_SHAPE: 1,256,256
   # PATH_TO_MODEL: ~/andekje/masters-thesis/unet1/experiments/vanilla_unet1/20240220-132907/model_epoch_100_loss_-0.9.pth
-  PATH_TO_MODEL: /home/andekje/masters-thesis/unet1/experiments/vanilla_unet1/20240220-132907/model_epoch_100_loss_-0.9.pth
+  # PATH_TO_MODEL: /home/andekje/masters-thesis/unet1/experiments/vanilla_unet1/20240220-132907/model_epoch_100_loss_-0.9.pth
+  PATH_TO_MODEL: /home/andekje/masters-thesis/unet1/experiments/vanilla_unet1/20240221-113701/model_epoch_70_loss_-0.91.pth
   # add more model specific parameters here

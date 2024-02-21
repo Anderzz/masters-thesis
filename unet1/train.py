@@ -26,6 +26,7 @@ def run_model(dataloader, optimizer, model, loss_fn, train=True, device=None):
     :return: average loss over the epoch
     """
     losses = []
+    dice_scores = []
     for i, data in tqdm(enumerate(dataloader), total=len(dataloader)):
         # Every data instance is an input + label pair
         inputs, labels = data
@@ -49,11 +50,16 @@ def run_model(dataloader, optimizer, model, loss_fn, train=True, device=None):
         else:
             batch_loss = loss_fn(predictions, labels_one_hot)
             batch_loss.backward()
+        predictions = torch.argmax(predictions, dim=1)
+        predictions = predictions.cpu().numpy()
+        labels = labels.cpu().numpy().astype(int)
+        batch_dice = utils.dice_score(predictions, labels, labels=[0, 1, 2, 3])
         losses.append(batch_loss.item())
+        dice_scores.append(batch_dice)
         if train:
             # Adjust learning weights
             optimizer.step()
-    return np.mean(losses)
+    return np.mean(losses), np.mean(dice_scores)
 
 
 def get_loss(loss_name, device):
@@ -111,20 +117,30 @@ def train(config_loc, verbose=True):
             A.ShiftScaleRotate(
                 shift_limit=0.2, scale_limit=0.2, rotate_limit=10, p=0.5
             ),
-            A.RandomGamma(gamma_limit=(80, 120), p=0.5),
-            A.GaussNoise(var_limit=(10.0, 50.0), p=0.5),
+            A.RandomGamma(gamma_limit=(80, 120), p=0.25),
+            A.GaussNoise(var_limit=(10.0, 50.0), p=0.25),
             # A.ImageCompression(quality_lower=60, quality_upper=100, p=0.5),
             # A.RandomBrightnessContrast(brightness_limit=0.3, contrast_limit=0.3, p=0.5),
-            A.Normalize(mean=(0.485), std=(0.229)),
+            # A.Normalize(mean=(0.485), std=(0.229)),
             ToTensorV2(),
         ]
     )
     val_transform = A.Compose(
         [
-            A.Normalize(mean=(0.485), std=(0.229)),
+            # A.Normalize(mean=(0.485), std=(0.229)),
             ToTensorV2(),
         ]
     )
+
+    # Serialize the augmentations
+    train_augmentations_serialized = utils.serialize_augmentations(train_transform)
+    # val_augmentations_serialized = utils.serialize_augmentations(val_transform)
+    # Save the config file in the unique run directory and dump what augmentations are used
+    with open(os.path.join(output_dir, "config.yaml"), "w") as file:
+        # add the augmentations to the config file
+        config["TRAINING"]["AUGMENTATION_PARAMS"] = train_augmentations_serialized
+        yaml.dump(config, file)
+
     if verbose:
         total_nb_params = sum(p.numel() for p in model.parameters())
         print("total number of params: " + str(total_nb_params))
@@ -146,28 +162,31 @@ def train(config_loc, verbose=True):
     min_loss = np.inf
     writer = SummaryWriter(log_dir=os.path.join(output_dir, "logs"))
     # calculate loss on validation set before first epoch
-    validation_loss = run_model(
+    validation_loss, validation_dice = run_model(
         dataloader_validation, optimizer, model, loss_fn, train=False, device=device
     )
     writer.add_scalar("Loss/validation", validation_loss, 0)
-    print(f"Epoch 0 validation loss: {validation_loss}")
+    writer.add_scalar("Dice/validation", validation_dice, 0)
+    print(f"Epoch 0 validation dice: {validation_dice}")
     torch.save(
         model.state_dict(),
         output_dir
-        + "/model_epoch_0_loss_"
-        + str(np.round(validation_loss, 2))
+        + "/model_epoch_0_dice_"
+        + str(np.round(validation_dice, 2))
         + ".pth",
     )
     writer.flush()
     for epoch in range(config["TRAINING"]["NB_EPOCHS"]):
-        train_loss = run_model(
+        train_loss, train_dice = run_model(
             dataloader_train, optimizer, model, loss_fn, train=True, device=device
         )
-        validation_loss = run_model(
+        validation_loss, validation_dice = run_model(
             dataloader_validation, optimizer, model, loss_fn, train=False, device=device
         )
         writer.add_scalar("Loss/train", train_loss, epoch)
+        writer.add_scalar("Dice/train", train_dice, epoch)
         writer.add_scalar("Loss/validation", validation_loss, epoch)
+        writer.add_scalar("Dice/validation", validation_dice, epoch)
         if validation_loss < min_loss:
             min_loss = validation_loss
             torch.save(
@@ -175,20 +194,25 @@ def train(config_loc, verbose=True):
                 output_dir
                 + "/model_epoch_"
                 + str(epoch + 1)
-                + "_loss_"
-                + str(np.round(validation_loss, 2))
+                + "_dice_"
+                + str(np.round(validation_dice, 2))
                 + ".pth",
             )
 
-        print(f"Epoch {epoch + 1} validation loss: {validation_loss}")
+        print(
+            f'Epoch {epoch + 1}/{config["TRAINING"]["NB_EPOCHS"]} validation loss: {validation_loss}'
+        )
+        print(
+            f'Epoch {epoch + 1}/{config["TRAINING"]["NB_EPOCHS"]} validation dice: {validation_dice}'
+        )
         writer.flush()
     torch.save(
         model.state_dict(),
         output_dir
         + "/model_epoch_"
         + str(epoch + 1)
-        + "_loss_"
-        + str(np.round(validation_loss, 2))
+        + "_dice_"
+        + str(np.round(validation_dice, 2))
         + ".pth",
     )
     writer.close()

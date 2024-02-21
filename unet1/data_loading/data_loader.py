@@ -75,7 +75,6 @@ class Labeled_dataset(torch.utils.data.Dataset):
             transformed = self.transform(image=X, mask=y)
             X = transformed["image"]
             y = transformed["mask"]
-
         # if isinstance(X, list):
         #     X = [torch.from_numpy(x) for x in X]
         # else:

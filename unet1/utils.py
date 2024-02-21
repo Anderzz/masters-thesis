@@ -6,6 +6,8 @@ from PIL import Image
 from skimage.transform import resize
 import utils
 import torch
+import albumentations as A
+from albumentations.pytorch.transforms import ToTensorV2
 
 np.bool = np.bool_  # fix for medpy using np.bool_ instead of bool
 
@@ -207,6 +209,13 @@ def plot_segmentation(
     if show:
         plt.show()
     plt.close(fig)
+
+
+def serialize_augmentations(augmentations):
+    """
+    Serialize Albumentations augmentations into a serializable list of dicts.
+    """
+    return [aug.__repr__() for aug in augmentations]
 
 
 #### preprocessing utils ####
