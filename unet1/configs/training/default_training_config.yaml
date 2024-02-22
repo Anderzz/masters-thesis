@@ -15,12 +15,16 @@ GPU: 0
 
 TRAINING:
   AUGMENTATION_PARAMS: []
+  MEAN: 0
+  STD: 0
   NB_EPOCHS: 100
   LOSS: "DICE"
   OPTIMIZER: "Adam"
   LR: 0.001
+  PATIENCE: 100
   BATCH_SIZE: 32
   DATA_LOADER_PARAMS: { "batch_size": 32, "shuffle": True, "num_workers": 8 }
+  NOTE: "With BN"
 
 REL_OUT_DIR: "vanilla_unet1"
 

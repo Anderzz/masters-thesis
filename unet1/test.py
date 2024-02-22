@@ -14,6 +14,19 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 
 
+def get_output_dir(config):
+    """
+    Make <plots> directory in the same directory as the model to save the outputs
+    :param config: dict, configuration dictionary
+    :return: str, output directory
+    """
+    out_dir = "/".join(config["MODEL"]["PATH_TO_MODEL"].split("/")[:-1])
+    plot_folder = os.path.join(out_dir, "plots")
+    print("Saving results to: " + plot_folder)
+    os.makedirs(plot_folder, exist_ok=True)
+    return out_dir
+
+
 def get_loss(loss_name, device):
     """
     Get the loss function to use for training
@@ -33,6 +46,12 @@ def test(config_loc):
     with open(config_loc, "r") as file:
         config = yaml.load(file, Loader=yaml.loader.SafeLoader)
 
+    # out_dir = os.path.join(CONST.EXPERIMENTS_DIR, config["REL_OUT_DIR"])
+    out_dir = "/".join(config["MODEL"]["PATH_TO_MODEL"].split("/")[:-1])
+    plot_folder = os.path.join(out_dir, "plots")
+    print("Saving results to: " + plot_folder)
+    os.makedirs(plot_folder, exist_ok=True)
+
     splits = utils.get_splits(config["SPLIT_NB"], config["CAMUS_SPLITS_LOCATION"])
     train_set, val_set, test_set = splits
     test_loc = os.path.join(config["PREPROCESSING_OUT_LOC"], "test")
@@ -41,7 +60,9 @@ def test(config_loc):
     model_path = config["MODEL"]["PATH_TO_MODEL"]
     input_shape = config["MODEL"]["INPUT_SHAPE"]
     input_shape_tuple = tuple([int(x) for x in input_shape.split(",")])
-    model = network.unet1(input_shape_tuple)
+    model = network.unet1(
+        input_shape_tuple, normalize_input=True, normalize_inter_layer=True
+    )
     model.load_state_dict(torch.load(model_path, map_location=device))
     model = model.to(device)
     model.eval()
@@ -62,8 +83,11 @@ def test(config_loc):
     dataloader_test = torch.utils.data.DataLoader(dataset_test, **data_loader_params)
     losses = []
     dice_scores = []
+    print(len(dataset_test))
     with torch.no_grad():
-        for inputs, labels in tqdm(dataloader_test, total=len(dataloader_test)):
+        for i, (inputs, labels) in tqdm(
+            enumerate(dataloader_test), total=len(dataloader_test)
+        ):
             inputs = inputs.to(device)
             labels = labels.to(device)
             labels_one_hot = utils.convert_to_one_hot(labels, device=device)
@@ -74,12 +98,24 @@ def test(config_loc):
             labels = labels.cpu().numpy().astype(int)
 
             dice = utils.dice_score(predictions, labels, labels=[0, 1, 2, 3])
+            dice_lv = utils.dice_score(predictions.squeeze(), labels.squeeze(), [1])
+            dice_myo = utils.dice_score(predictions.squeeze(), labels.squeeze(), [2])
+            dice_la = utils.dice_score(predictions.squeeze(), labels.squeeze(), [3])
+            dices = [dice_lv, dice_myo, dice_la]
+            utils.plot_segmentation(
+                inputs.cpu().numpy().squeeze().T,
+                labels.squeeze().T,
+                predictions.squeeze().T,
+                f"{i}.png",
+                dices,
+                plot_folder,
+            )
             losses.append(loss)
             dice_scores.append(dice)
 
     avg_loss = np.mean(losses)
     avg_dice = np.mean(dice_scores, axis=0)
-    return avg_loss, avg_dice
+    return avg_loss, avg_dice, dices
 
 
 def main():
@@ -88,9 +124,10 @@ def main():
         config_loc = sys.argv[1]
     else:
         config_loc = CONST.DEFAULT_TESTING_CONFIG_LOC
-    loss, dice = test(config_loc)
+    loss, dice, dices = test(config_loc)
     print(f"Average loss: {loss}")
     print(f"Average dice score: {dice}")
+    print(f"Dice scores: [LV, MYO, LA] {[round(x, 3) for x in dices]}")
 
 
 if __name__ == "__main__":

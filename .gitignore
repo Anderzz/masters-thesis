@@ -3,6 +3,7 @@ local_data/database_nifti/
 
 # all checkpoints
 *.pth
+test.ipynb
 
 .vscode/
 

@@ -12,6 +12,30 @@ import network
 from tqdm import tqdm
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
+from custom_augmentations import *
+
+
+def save_config(config, augmentations, output_dir):
+    """
+    Save the config file in the output directory
+    :param config: dict, configuration dictionary
+    :param output_dir: str, directory to save the config file in
+    """
+    # Ensure the output directory exists
+    os.makedirs(output_dir, exist_ok=True)
+    # Define the path for the YAML file within the output directory
+    config_yaml_path = os.path.join(output_dir, "config.yaml")
+
+    try:
+        # Open the file in write mode and save the configuration
+        with open(config_yaml_path, "w") as file:
+            # Update the configuration dictionary with the serialized augmentations
+            config["TRAINING"]["AUGMENTATION_PARAMS"] = augmentations
+            # Dump the updated configuration to the YAML file
+            yaml.dump(config, file)
+        print(f"Configuration saved successfully to {config_yaml_path}")
+    except Exception as e:
+        print(f"Error saving configuration to YAML: {e}")
 
 
 def run_model(dataloader, optimizer, model, loss_fn, train=True, device=None):
@@ -109,7 +133,9 @@ def train(config_loc, verbose=True):
     input_shape = config["MODEL"]["INPUT_SHAPE"]
     # convert string to tuple
     input_shape_tuple = tuple([int(x) for x in input_shape.split(",")])
-    model = network.unet1(input_shape_tuple)
+    model = network.unet1(
+        input_shape_tuple, normalize_input=True, normalize_inter_layer=True
+    )
     model = model.to(device)
     # model.double()
     train_transform = A.Compose(
@@ -119,8 +145,8 @@ def train(config_loc, verbose=True):
             ),
             A.RandomGamma(gamma_limit=(80, 120), p=0.25),
             A.GaussNoise(var_limit=(10.0, 50.0), p=0.25),
-            # A.ImageCompression(quality_lower=60, quality_upper=100, p=0.5),
-            # A.RandomBrightnessContrast(brightness_limit=0.3, contrast_limit=0.3, p=0.5),
+            Blackout(probability=0.2, p=0.5),
+            A.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2, p=0.5),
             # A.Normalize(mean=(0.485), std=(0.229)),
             ToTensorV2(),
         ]
@@ -134,12 +160,9 @@ def train(config_loc, verbose=True):
 
     # Serialize the augmentations
     train_augmentations_serialized = utils.serialize_augmentations(train_transform)
-    # val_augmentations_serialized = utils.serialize_augmentations(val_transform)
-    # Save the config file in the unique run directory and dump what augmentations are used
-    with open(os.path.join(output_dir, "config.yaml"), "w") as file:
-        # add the augmentations to the config file
-        config["TRAINING"]["AUGMENTATION_PARAMS"] = train_augmentations_serialized
-        yaml.dump(config, file)
+
+    # save the config to the output directory
+    save_config(config, train_augmentations_serialized, output_dir)
 
     if verbose:
         total_nb_params = sum(p.numel() for p in model.parameters())
@@ -159,7 +182,11 @@ def train(config_loc, verbose=True):
         dataset_validation, **data_loader_params
     )
     optimizer = torch.optim.Adam(model.parameters(), lr=config["TRAINING"]["LR"])
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, "max", factor=0.1, patience=5
+    )
     min_loss = np.inf
+    current_best_dice = 0
     writer = SummaryWriter(log_dir=os.path.join(output_dir, "logs"))
     # calculate loss on validation set before first epoch
     validation_loss, validation_dice = run_model(
@@ -176,6 +203,12 @@ def train(config_loc, verbose=True):
         + ".pth",
     )
     writer.flush()
+
+    # Early stopping setup
+    best_validation_dice = np.inf
+    epochs_without_improvement = 0
+    patience = config["TRAINING"]["PATIENCE"]
+
     for epoch in range(config["TRAINING"]["NB_EPOCHS"]):
         train_loss, train_dice = run_model(
             dataloader_train, optimizer, model, loss_fn, train=True, device=device
@@ -183,12 +216,29 @@ def train(config_loc, verbose=True):
         validation_loss, validation_dice = run_model(
             dataloader_validation, optimizer, model, loss_fn, train=False, device=device
         )
+
+        scheduler.step(validation_dice)
+
         writer.add_scalar("Loss/train", train_loss, epoch)
         writer.add_scalar("Dice/train", train_dice, epoch)
         writer.add_scalar("Loss/validation", validation_loss, epoch)
         writer.add_scalar("Dice/validation", validation_dice, epoch)
-        if validation_loss < min_loss:
-            min_loss = validation_loss
+
+        # Early stopping
+        if validation_dice > best_validation_dice:
+            best_validation_dice = validation_dice
+            epochs_without_improvement = 0
+        else:
+            epochs_without_improvement += 1
+        if epochs_without_improvement > patience:
+            print(
+                f"Early stopping after {patience} epochs without improvement. Best validation dice: {best_validation_dice}"
+            )
+            break
+
+        if validation_dice > current_best_dice:
+            current_best_dice = validation_dice
+            print(f"New best model, saving..")
             torch.save(
                 model.state_dict(),
                 output_dir
@@ -200,10 +250,10 @@ def train(config_loc, verbose=True):
             )
 
         print(
-            f'Epoch {epoch + 1}/{config["TRAINING"]["NB_EPOCHS"]} validation loss: {validation_loss}'
+            f'Epoch {epoch + 1}/{config["TRAINING"]["NB_EPOCHS"]} train loss: {round(train_loss,3)} | val loss: {round(validation_loss,3)}'
         )
         print(
-            f'Epoch {epoch + 1}/{config["TRAINING"]["NB_EPOCHS"]} validation dice: {validation_dice}'
+            f'Epoch {epoch + 1}/{config["TRAINING"]["NB_EPOCHS"]} train dice: {round(train_dice,3)} val dice: {round(validation_dice,3)}'
         )
         writer.flush()
     torch.save(
