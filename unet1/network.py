@@ -83,6 +83,64 @@ class ConvolutionBlock(nn.Module):
         return x
 
 
+class ConvolutionBlockResidual(nn.Module):
+    """
+    Convolution block consisting of two convolutional layers with optional batch normalization and
+    given activation function, including a residual connection.
+    """
+
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        kernel_size=(3, 3),
+        batch_normalization=False,
+        activation="relu",
+    ):
+        super(ConvolutionBlockResidual, self).__init__()
+        self.conv1 = nn.Conv2d(
+            in_channels,
+            out_channels,
+            kernel_size,
+            padding=(kernel_size[0] // 2, kernel_size[1] // 2),
+        )
+        self.batch_norm1 = (
+            nn.BatchNorm2d(out_channels) if batch_normalization else nn.Identity()
+        )
+        self.activation1 = get_activation(activation)
+
+        self.conv2 = nn.Conv2d(
+            out_channels,
+            out_channels,
+            kernel_size,
+            padding=(kernel_size[0] // 2, kernel_size[1] // 2),
+        )
+        self.batch_norm2 = (
+            nn.BatchNorm2d(out_channels) if batch_normalization else nn.Identity()
+        )
+        self.activation2 = get_activation(activation)
+
+        self.residual = (
+            nn.Identity()
+            if in_channels == out_channels
+            else nn.Conv2d(in_channels, out_channels, kernel_size=1)
+        )
+
+    def forward(self, x):
+        residual = self.residual(x)
+
+        x = self.conv1(x)
+        x = self.batch_norm1(x)
+        x = self.activation1(x)
+
+        x = self.conv2(x)
+        x = self.batch_norm2(x)
+        x = self.activation2(x)
+
+        x += residual
+        return x
+
+
 class unet1(nn.Module):
     """
     The netowrk architecture is based on the U-Net 1 architecture proposed in the paper:
@@ -227,6 +285,256 @@ class unet1(nn.Module):
         if not batch:
             out_x = out_x.squeeze(0)
         return out_x
+
+
+class unet1_res(nn.Module):
+    """
+    The netowrk architecture is based on the U-Net 1 architecture proposed in the paper:
+    Leclerc S, Smistad E, Pedrosa J, Ostvik A, Cervenansky F, Espinosa F, Espeland T, Berg EAR, Jodoin PM, Grenier T,
+    Lartizien C, Dhooge J, Lovstakken L, Bernard O. Deep Learning for Segmentation Using an Open Large-Scale Dataset
+    in 2D Echocardiography. IEEE Trans Med Imaging. 2019 Sep;38(9):2198-2210. doi: 10.1109/TMI.2019.2900516.
+    Epub 2019 Feb 22. PMID: 30802851.
+    """
+
+    def __init__(
+        self,
+        input_shape=(1, 256, 256),
+        activation_inter_layer="relu",
+        normalize_input=False,
+        normalize_inter_layer=False,
+        nb_classes=4,
+        final_activation="softmax",
+    ):
+        super().__init__()
+
+        self.normalize_input = (
+            nn.BatchNorm2d(input_shape[0]) if normalize_input else nn.Identity()
+        )
+
+        self.down1 = ConvolutionBlockResidual(
+            input_shape[0],
+            32,
+            kernel_size=(3, 3),
+            activation=activation_inter_layer,
+            batch_normalization=normalize_inter_layer,
+        )
+        self.down2 = ConvolutionBlockResidual(
+            32,
+            32,
+            kernel_size=(3, 3),
+            activation=activation_inter_layer,
+            batch_normalization=normalize_inter_layer,
+        )
+        self.down3 = ConvolutionBlockResidual(
+            32,
+            64,
+            kernel_size=(3, 3),
+            activation=activation_inter_layer,
+            batch_normalization=normalize_inter_layer,
+        )
+        self.down4 = ConvolutionBlockResidual(
+            64,
+            128,
+            kernel_size=(3, 3),
+            activation=activation_inter_layer,
+            batch_normalization=normalize_inter_layer,
+        )
+        self.down5 = ConvolutionBlockResidual(
+            128,
+            128,
+            kernel_size=(3, 3),
+            activation=activation_inter_layer,
+            batch_normalization=normalize_inter_layer,
+        )
+        self.down6 = ConvolutionBlockResidual(
+            128,
+            128,
+            kernel_size=(3, 3),
+            activation=activation_inter_layer,
+            batch_normalization=normalize_inter_layer,
+        )
+
+        self.up1 = ConvolutionBlockResidual(
+            256,
+            128,
+            kernel_size=(3, 3),
+            activation=activation_inter_layer,
+            batch_normalization=normalize_inter_layer,
+        )
+        self.up2 = ConvolutionBlockResidual(
+            256,
+            128,
+            kernel_size=(3, 3),
+            activation=activation_inter_layer,
+            batch_normalization=normalize_inter_layer,
+        )
+        self.up3 = ConvolutionBlockResidual(
+            192,
+            64,
+            kernel_size=(3, 3),
+            activation=activation_inter_layer,
+            batch_normalization=normalize_inter_layer,
+        )
+        self.up4 = ConvolutionBlockResidual(
+            96,
+            32,
+            kernel_size=(3, 3),
+            activation=activation_inter_layer,
+            batch_normalization=normalize_inter_layer,
+        )
+        self.up5 = ConvolutionBlockResidual(
+            64,
+            16,
+            kernel_size=(3, 3),
+            activation=activation_inter_layer,
+            batch_normalization=normalize_inter_layer,
+        )
+        self.seg = nn.Conv2d(16, nb_classes, kernel_size=(1, 1))
+        self.final_activation = get_activation(final_activation)
+
+    def forward(self, x):
+        x, batch = make_batch(x)
+
+        x = self.normalize_input(x)
+
+        down1_x = self.down1(x)
+        x = F.max_pool2d(down1_x, kernel_size=2)
+        down2_x = self.down2(x)
+        x = F.max_pool2d(down2_x, kernel_size=2)
+        down3_x = self.down3(x)
+        x = F.max_pool2d(down3_x, kernel_size=2)
+        down4_x = self.down4(x)
+        x = F.max_pool2d(down4_x, kernel_size=2)
+        down5_x = self.down5(x)
+        x = F.max_pool2d(down5_x, kernel_size=2)
+        down6_x = self.down6(x)
+
+        x = F.interpolate(down6_x, scale_factor=2, mode="nearest")
+        x = torch.cat([down5_x, x], dim=1)
+        up1_x = self.up1(x)
+        x = F.interpolate(up1_x, scale_factor=2, mode="nearest")
+        x = torch.cat([down4_x, x], dim=1)
+        up2_x = self.up2(x)
+        x = F.interpolate(up2_x, scale_factor=2, mode="nearest")
+        x = torch.cat([down3_x, x], dim=1)
+        up3_x = self.up3(x)
+        x = F.interpolate(up3_x, scale_factor=2, mode="nearest")
+        x = torch.cat([down2_x, x], dim=1)
+        up4_x = self.up4(x)
+        x = F.interpolate(up4_x, scale_factor=2, mode="nearest")
+        x = torch.cat([down1_x, x], dim=1)
+        up5_x = self.up5(x)
+
+        seg_x = self.seg(up5_x)
+        out_x = self.final_activation(seg_x)
+
+        if not batch:
+            out_x = out_x.squeeze(0)
+        return out_x
+
+
+class unet1_transconv(nn.Module):
+
+    def __init__(
+        self,
+        input_shape=(1, 256, 256),
+        activation_inter_layer="relu",
+        normalize_input=False,
+        normalize_inter_layer=False,
+        nb_classes=4,
+        final_activation="softmax",
+    ):
+        super().__init__()
+
+        self.normalize_input = (
+            nn.BatchNorm2d(input_shape[0]) if normalize_input else nn.Identity()
+        )
+
+        # Encoder
+        self.down1 = ConvolutionBlock(
+            input_shape[0],
+            32,
+            activation=activation_inter_layer,
+            batch_normalization=normalize_inter_layer,
+        )
+        self.down2 = ConvolutionBlock(
+            32,
+            64,
+            activation=activation_inter_layer,
+            batch_normalization=normalize_inter_layer,
+        )
+        self.down3 = ConvolutionBlock(
+            64,
+            128,
+            activation=activation_inter_layer,
+            batch_normalization=normalize_inter_layer,
+        )
+        self.down4 = ConvolutionBlock(
+            128,
+            256,
+            activation=activation_inter_layer,
+            batch_normalization=normalize_inter_layer,
+        )
+
+        # Decoder with transpose convolutions for upscaling
+        self.up1_transpose = nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2)
+        self.up1 = ConvolutionBlock(
+            256,
+            128,
+            activation=activation_inter_layer,
+            batch_normalization=normalize_inter_layer,
+        )
+        self.up2_transpose = nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2)
+        self.up2 = ConvolutionBlock(
+            128,
+            64,
+            activation=activation_inter_layer,
+            batch_normalization=normalize_inter_layer,
+        )
+        self.up3_transpose = nn.ConvTranspose2d(64, 32, kernel_size=2, stride=2)
+        self.up3 = ConvolutionBlock(
+            64,
+            32,
+            activation=activation_inter_layer,
+            batch_normalization=normalize_inter_layer,
+        )
+
+        self.final_conv = nn.Conv2d(32, nb_classes, kernel_size=1)
+        self.final_activation = get_activation(final_activation)
+
+    def forward(self, x):
+        x, batch = make_batch(x)
+
+        x = self.normalize_input(x)
+
+        # Encoder path
+        down1 = self.down1(x)
+        x = F.max_pool2d(down1, 2)
+        down2 = self.down2(x)
+        x = F.max_pool2d(down2, 2)
+        down3 = self.down3(x)
+        x = F.max_pool2d(down3, 2)
+        down4 = self.down4(x)
+
+        # Decoder path
+        x = self.up1_transpose(down4)
+        x = torch.cat([x, down3], dim=1)
+        x = self.up1(x)
+
+        x = self.up2_transpose(x)
+        x = torch.cat([x, down2], dim=1)
+        x = self.up2(x)
+
+        x = self.up3_transpose(x)
+        x = torch.cat([x, down1], dim=1)
+        x = self.up3(x)
+
+        x = self.final_conv(x)
+        x = self.final_activation(x)
+
+        if not batch:
+            x = x.squeeze(0)
+        return x
 
 
 if __name__ == "__main__":

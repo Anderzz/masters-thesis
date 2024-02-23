@@ -65,7 +65,7 @@ def run_model(dataloader, optimizer, model, loss_fn, train=True, device=None):
         else:
             model.eval()
         # add channel dimension to inputs
-        # inputs = inputs.unsqueeze(1)
+        inputs = inputs.unsqueeze(1)
         predictions = model.forward(inputs)
         # Compute the loss and its gradients
         if not train:
@@ -77,13 +77,18 @@ def run_model(dataloader, optimizer, model, loss_fn, train=True, device=None):
         predictions = torch.argmax(predictions, dim=1)
         predictions = predictions.cpu().numpy()
         labels = labels.cpu().numpy().astype(int)
-        batch_dice = utils.dice_score(predictions, labels, labels=[0, 1, 2, 3])
+        # batch_dice = utils.dice_score(predictions, labels, labels=[1, 2, 3, 4])
+        dice_lv = utils.dice_score(predictions.squeeze(), labels.squeeze(), [1])
+        dice_myo = utils.dice_score(predictions.squeeze(), labels.squeeze(), [2])
+        dice_la = utils.dice_score(predictions.squeeze(), labels.squeeze(), [3])
+        batch_dices = [dice_lv, dice_myo, dice_la]
+        batch_dice = np.mean(batch_dices)
         losses.append(batch_loss.item())
         dice_scores.append(batch_dice)
         if train:
             # Adjust learning weights
             optimizer.step()
-    return np.mean(losses), np.mean(dice_scores)
+    return np.mean(losses), np.mean(dice_scores), batch_dices
 
 
 def get_loss(loss_name, device):
@@ -136,25 +141,31 @@ def train(config_loc, verbose=True):
     model = network.unet1(
         input_shape_tuple, normalize_input=True, normalize_inter_layer=True
     )
+    # model = network.unet1_res(
+    #     input_shape_tuple, normalize_input=True, normalize_inter_layer=True
+    # )
+    # model = network.unet1_transconv(
+    #     input_shape_tuple, normalize_input=True, normalize_inter_layer=True
+    # )
     model = model.to(device)
     # model.double()
     train_transform = A.Compose(
         [
-            A.ShiftScaleRotate(
-                shift_limit=0.2, scale_limit=0.2, rotate_limit=10, p=0.5
-            ),
-            A.RandomGamma(gamma_limit=(80, 120), p=0.25),
-            A.GaussNoise(var_limit=(10.0, 50.0), p=0.25),
-            Blackout(probability=0.2, p=0.5),
-            A.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2, p=0.5),
+            # A.ShiftScaleRotate(
+            #     shift_limit=0.2, scale_limit=0.2, rotate_limit=10, p=0.5
+            # ),
+            # A.RandomGamma(gamma_limit=(80, 120), p=0.2),
+            # A.GaussNoise(var_limit=(10.0, 50.0), p=0.2),
+            # Blackout(probability=0.2, p=0.5),
+            # A.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2, p=0.5),
             # A.Normalize(mean=(0.485), std=(0.229)),
-            ToTensorV2(),
+            # ToTensorV2(),
         ]
     )
     val_transform = A.Compose(
         [
             # A.Normalize(mean=(0.485), std=(0.229)),
-            ToTensorV2(),
+            # ToTensorV2(),
         ]
     )
 
@@ -189,12 +200,14 @@ def train(config_loc, verbose=True):
     current_best_dice = 0
     writer = SummaryWriter(log_dir=os.path.join(output_dir, "logs"))
     # calculate loss on validation set before first epoch
-    validation_loss, validation_dice = run_model(
+    validation_loss, validation_dice, validation_dice_per_class = run_model(
         dataloader_validation, optimizer, model, loss_fn, train=False, device=device
     )
     writer.add_scalar("Loss/validation", validation_loss, 0)
     writer.add_scalar("Dice/validation", validation_dice, 0)
-    print(f"Epoch 0 validation dice: {validation_dice}")
+    print(
+        f"Epoch 0 validation dice: {validation_dice}, per class: {validation_dice_per_class}"
+    )
     torch.save(
         model.state_dict(),
         output_dir
@@ -205,15 +218,15 @@ def train(config_loc, verbose=True):
     writer.flush()
 
     # Early stopping setup
-    best_validation_dice = np.inf
+    best_validation_dice = 0
     epochs_without_improvement = 0
     patience = config["TRAINING"]["PATIENCE"]
 
     for epoch in range(config["TRAINING"]["NB_EPOCHS"]):
-        train_loss, train_dice = run_model(
+        train_loss, train_dice, train_dice_per_class = run_model(
             dataloader_train, optimizer, model, loss_fn, train=True, device=device
         )
-        validation_loss, validation_dice = run_model(
+        validation_loss, validation_dice, validation_dice_per_class = run_model(
             dataloader_validation, optimizer, model, loss_fn, train=False, device=device
         )
 
@@ -253,7 +266,7 @@ def train(config_loc, verbose=True):
             f'Epoch {epoch + 1}/{config["TRAINING"]["NB_EPOCHS"]} train loss: {round(train_loss,3)} | val loss: {round(validation_loss,3)}'
         )
         print(
-            f'Epoch {epoch + 1}/{config["TRAINING"]["NB_EPOCHS"]} train dice: {round(train_dice,3)} val dice: {round(validation_dice,3)}'
+            f'Epoch {epoch + 1}/{config["TRAINING"]["NB_EPOCHS"]} train dice: {round(train_dice,3)} | val dice: {round(validation_dice,3)} | class dice [LV, MYO, LA]: {[round(x, 3) for x in validation_dice_per_class]}'
         )
         writer.flush()
     torch.save(
