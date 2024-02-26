@@ -139,8 +139,7 @@ def train(config_loc, verbose=True):
     logs_dir = os.path.join(output_dir, "logs")
     os.makedirs(logs_dir, exist_ok=True)
 
-    # loss_fn = get_loss(config["TRAINING"]["LOSS"], device)
-    loss_fn = get_loss("DICE_WEIGHTED", device)
+    loss_fn = get_loss(config["TRAINING"]["LOSS"], device)
     input_shape = config["MODEL"]["INPUT_SHAPE"]
     # convert string to tuple
     input_shape_tuple = tuple([int(x) for x in input_shape.split(",")])
