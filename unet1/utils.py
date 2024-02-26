@@ -322,6 +322,29 @@ def get_dice_loss_fn(
     )
 
 
+def get_weighted_dice_loss_fn(
+    class_weights=None,
+    nb_classes=3,
+    epsilon=1e-10,
+    include_bg=False,
+    one_hot=True,
+    device="cpu",
+):
+    """
+    Return weighted dice loss function with given parameters
+    """
+    return lambda target, output: weighted_dice_loss(
+        target,
+        output,
+        class_weights=class_weights,
+        nb_classes=nb_classes,
+        epsilon=epsilon,
+        include_bg=include_bg,
+        device=device,
+        one_hot=one_hot,
+    )
+
+
 def dice_loss(
     output,
     target,
@@ -362,6 +385,61 @@ def dice_loss(
         dice += (2.0 * intersection_obj + smooth) / (union_obj + smooth)
     dice /= nb_classes - 1
     return -torch.clamp(dice, 0.0, 1.0 - epsilon)
+
+
+def weighted_dice_loss(
+    output,
+    target,
+    class_weights=None,
+    nb_classes=3,
+    epsilon=1e-10,
+    include_bg=False,
+    one_hot=True,
+    device="cpu",
+):
+    """
+    Calculate weighted dice loss for given target and output.
+    :param output: predicted segmentation
+    :param target: target segmentation
+    :param class_weights: a list or tensor of weights for each class
+    :param nb_classes: number of classes
+    :param epsilon: epsilon parameter for numerical stability
+    :param include_bg: whether to include background in loss calculation or not
+    :param one_hot: whether the target and output are in one-hot encoding or not. If not, they are converted to one-hot
+                    encoding.
+    :param device: device used by pytorch
+    :return: weighted dice loss
+    """
+    # print(f"Using class weights: {class_weights}")
+    if class_weights is None:
+        class_weights = [1 for _ in range(nb_classes)]
+
+    if not one_hot:
+        target = convert_to_one_hot(target, nb_classes=nb_classes, device=device)
+        output = convert_to_one_hot(output, nb_classes=nb_classes, device=device)
+    smooth = 1.0
+    dice_loss = 0
+    start_idx = 0 if include_bg else 1
+
+    for obj in range(start_idx, nb_classes):
+        output_obj = output[:, obj, :, :]
+        target_obj = target[:, obj, :, :]
+        intersection_obj = torch.sum(output_obj * target_obj)
+        union_obj = torch.sum(output_obj) + torch.sum(target_obj)
+
+        # Apply class weight
+        class_dice = (2.0 * intersection_obj + smooth) / (union_obj + smooth)
+        weighted_dice = class_weights[obj] * class_dice  # Apply class weight here
+
+        dice_loss += weighted_dice
+
+    # Adjust for the number of classes considered
+    if include_bg:
+        dice_loss /= nb_classes
+    else:
+        dice_loss /= nb_classes - 1
+
+    return -torch.clamp(dice_loss, 0.0, 1.0 - epsilon)
 
 
 if __name__ == "__main__":

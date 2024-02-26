@@ -61,7 +61,7 @@ def test(config_loc):
     input_shape = config["MODEL"]["INPUT_SHAPE"]
     input_shape_tuple = tuple([int(x) for x in input_shape.split(",")])
     model = network.unet1(
-        input_shape_tuple, normalize_input=True, normalize_inter_layer=True
+        input_shape_tuple, normalize_input=False, normalize_inter_layer=True
     )
     # model = network.unet1(input_shape_tuple)
     # model = network.unet1_transconv(
@@ -94,12 +94,22 @@ def test(config_loc):
         ):
             inputs = inputs.to(device)
             labels = labels.to(device)
+            # nxhxw x nxhxw
             labels_one_hot = utils.convert_to_one_hot(labels, device=device)
+            # inputs = inputs.unsqueeze(1)  # add channel dimension, but ToTensorV2 already does this
             predictions = model(inputs)
+
             loss = loss_fn(predictions, labels_one_hot).cpu().numpy()
             predictions = torch.argmax(predictions, dim=1)
             predictions = predictions.cpu().numpy()
             labels = labels.cpu().numpy().astype(int)
+
+            # print(
+            #     np.unique(labels, return_counts=True),
+            #     np.unique(predictions, return_counts=True),
+            # )
+            # print(predictions.shape, labels_one_hot.shape, labels.shape, inputs.shape)
+            # break
 
             # dice = utils.dice_score(predictions, labels, [0, 1, 2, 3])
             dice_lv = utils.dice_score(predictions.squeeze(), labels.squeeze(), [1])
@@ -109,9 +119,9 @@ def test(config_loc):
             av_dice = np.mean(dices)
 
             utils.plot_segmentation(
-                inputs.cpu().numpy().squeeze().T,
-                labels.squeeze().T,
-                predictions.squeeze().T,
+                inputs[0].cpu().numpy().squeeze().T,
+                labels[0].squeeze().T,
+                predictions[0].squeeze().T,
                 f"{i}.png",
                 dices,
                 plot_folder,

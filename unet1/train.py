@@ -57,6 +57,7 @@ def run_model(dataloader, optimizer, model, loss_fn, train=True, device=None):
         inputs = inputs.to(device)
         labels = labels.to(device)
         labels_one_hot = utils.convert_to_one_hot(labels, device=device)
+        # inputs = inputs.unsqueeze(1)  # add channel dimension
         # Zero your gradients for every batch!
         optimizer.zero_grad()
         # Make predictions for this batch
@@ -64,8 +65,6 @@ def run_model(dataloader, optimizer, model, loss_fn, train=True, device=None):
             model.train()
         else:
             model.eval()
-        # add channel dimension to inputs
-        inputs = inputs.unsqueeze(1)
         predictions = model.forward(inputs)
         # Compute the loss and its gradients
         if not train:
@@ -77,6 +76,8 @@ def run_model(dataloader, optimizer, model, loss_fn, train=True, device=None):
         predictions = torch.argmax(predictions, dim=1)
         predictions = predictions.cpu().numpy()
         labels = labels.cpu().numpy().astype(int)
+        # print(predictions.shape, labels.shape, labels_one_hot.shape)
+        # break
         # batch_dice = utils.dice_score(predictions, labels, labels=[1, 2, 3, 4])
         dice_lv = utils.dice_score(predictions.squeeze(), labels.squeeze(), [1])
         dice_myo = utils.dice_score(predictions.squeeze(), labels.squeeze(), [2])
@@ -100,6 +101,10 @@ def get_loss(loss_name, device):
     """
     if loss_name == "DICE":
         loss_fn = utils.get_dice_loss_fn(device=device)
+    elif loss_name == "DICE_WEIGHTED":
+        loss_fn = utils.get_weighted_dice_loss_fn(
+            class_weights=[1, 1, 1], device=device
+        )
     else:
         raise NotImplementedError
     return loss_fn
@@ -134,12 +139,13 @@ def train(config_loc, verbose=True):
     logs_dir = os.path.join(output_dir, "logs")
     os.makedirs(logs_dir, exist_ok=True)
 
-    loss_fn = get_loss(config["TRAINING"]["LOSS"], device)
+    # loss_fn = get_loss(config["TRAINING"]["LOSS"], device)
+    loss_fn = get_loss("DICE_WEIGHTED", device)
     input_shape = config["MODEL"]["INPUT_SHAPE"]
     # convert string to tuple
     input_shape_tuple = tuple([int(x) for x in input_shape.split(",")])
     model = network.unet1(
-        input_shape_tuple, normalize_input=True, normalize_inter_layer=True
+        input_shape_tuple, normalize_input=False, normalize_inter_layer=True
     )
     # model = network.unet1_res(
     #     input_shape_tuple, normalize_input=True, normalize_inter_layer=True
@@ -159,13 +165,15 @@ def train(config_loc, verbose=True):
             # Blackout(probability=0.2, p=0.5),
             # A.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2, p=0.5),
             # A.Normalize(mean=(0.485), std=(0.229)),
-            # ToTensorV2(),
+            # A.Normalize(mean=(48.6671), std=(53.9987), max_pixel_value=1.0),
+            ToTensorV2(),
         ]
     )
     val_transform = A.Compose(
         [
             # A.Normalize(mean=(0.485), std=(0.229)),
-            # ToTensorV2(),
+            # A.Normalize(mean=(48.6671), std=(53.9987), max_pixel_value=1.0),
+            ToTensorV2(),
         ]
     )
 
@@ -266,7 +274,7 @@ def train(config_loc, verbose=True):
             f'Epoch {epoch + 1}/{config["TRAINING"]["NB_EPOCHS"]} train loss: {round(train_loss,3)} | val loss: {round(validation_loss,3)}'
         )
         print(
-            f'Epoch {epoch + 1}/{config["TRAINING"]["NB_EPOCHS"]} train dice: {round(train_dice,3)} | val dice: {round(validation_dice,3)} | class dice [LV, MYO, LA]: {[round(x, 3) for x in validation_dice_per_class]}'
+            f'Epoch {epoch + 1}/{config["TRAINING"]["NB_EPOCHS"]} train dice: {round(train_dice,3)} | val dice: {round(validation_dice,3)} {[round(x, 3) for x in validation_dice_per_class]}'
         )
         writer.flush()
     torch.save(
