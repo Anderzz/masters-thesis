@@ -50,7 +50,9 @@ def run_model(dataloader, optimizer, model, loss_fn, train=True, device=None):
     :return: average loss over the epoch
     """
     losses = []
-    dice_scores = []
+    dice_scores = (
+        []
+    )  # list of lists, each containing the dice scores for each class per batch
     for i, data in tqdm(enumerate(dataloader), total=len(dataloader)):
         # Every data instance is an input + label pair
         inputs, labels = data
@@ -73,23 +75,22 @@ def run_model(dataloader, optimizer, model, loss_fn, train=True, device=None):
         else:
             batch_loss = loss_fn(predictions, labels_one_hot)
             batch_loss.backward()
+        # find the class with the highest probability
         predictions = torch.argmax(predictions, dim=1)
         predictions = predictions.cpu().numpy()
         labels = labels.cpu().numpy().astype(int)
-        # print(predictions.shape, labels.shape, labels_one_hot.shape)
-        # break
-        # batch_dice = utils.dice_score(predictions, labels, labels=[1, 2, 3, 4])
+
         dice_lv = utils.dice_score(predictions.squeeze(), labels.squeeze(), [1])
         dice_myo = utils.dice_score(predictions.squeeze(), labels.squeeze(), [2])
         dice_la = utils.dice_score(predictions.squeeze(), labels.squeeze(), [3])
-        batch_dices = [dice_lv, dice_myo, dice_la]
-        batch_dice = np.mean(batch_dices)
+        dices = [dice_lv, dice_myo, dice_la]
         losses.append(batch_loss.item())
-        dice_scores.append(batch_dice)
+        dice_scores.append(dices)
         if train:
             # Adjust learning weights
             optimizer.step()
-    return np.mean(losses), np.mean(dice_scores), batch_dices
+    # return avg loss, avg dice score and avg dice score per class
+    return np.mean(losses), np.mean(dice_scores), np.mean(dice_scores, axis=0)
 
 
 def get_loss(loss_name, device):
@@ -144,7 +145,7 @@ def train(config_loc, verbose=True):
     # convert string to tuple
     input_shape_tuple = tuple([int(x) for x in input_shape.split(",")])
     model = network.unet1(
-        input_shape_tuple, normalize_input=False, normalize_inter_layer=True
+        input_shape_tuple, normalize_input=True, normalize_inter_layer=True
     )
     # model = network.unet1_res(
     #     input_shape_tuple, normalize_input=True, normalize_inter_layer=True
@@ -156,11 +157,11 @@ def train(config_loc, verbose=True):
     # model.double()
     train_transform = A.Compose(
         [
-            # A.ShiftScaleRotate(
-            #     shift_limit=0.2, scale_limit=0.2, rotate_limit=10, p=0.5
-            # ),
-            # A.RandomGamma(gamma_limit=(80, 120), p=0.2),
-            # A.GaussNoise(var_limit=(10.0, 50.0), p=0.2),
+            A.ShiftScaleRotate(
+                shift_limit=0.2, scale_limit=0.2, rotate_limit=10, p=0.5
+            ),
+            A.RandomGamma(gamma_limit=(80, 120), p=0.2),
+            A.GaussNoise(var_limit=(10.0, 50.0), p=0.2),
             # Blackout(probability=0.2, p=0.5),
             # A.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2, p=0.5),
             # A.Normalize(mean=(0.485), std=(0.229)),
@@ -213,7 +214,7 @@ def train(config_loc, verbose=True):
     writer.add_scalar("Loss/validation", validation_loss, 0)
     writer.add_scalar("Dice/validation", validation_dice, 0)
     print(
-        f"Epoch 0 validation dice: {validation_dice}, per class: {validation_dice_per_class}"
+        f"Epoch 0 validation dice: {round(validation_dice, 3)}, per class: {[round(x, 3) for x in validation_dice_per_class]}"
     )
     torch.save(
         model.state_dict(),

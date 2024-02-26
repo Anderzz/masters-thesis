@@ -61,7 +61,7 @@ def test(config_loc):
     input_shape = config["MODEL"]["INPUT_SHAPE"]
     input_shape_tuple = tuple([int(x) for x in input_shape.split(",")])
     model = network.unet1(
-        input_shape_tuple, normalize_input=False, normalize_inter_layer=True
+        input_shape_tuple, normalize_input=True, normalize_inter_layer=True
     )
     # model = network.unet1(input_shape_tuple)
     # model = network.unet1_transconv(
@@ -94,7 +94,7 @@ def test(config_loc):
         ):
             inputs = inputs.to(device)
             labels = labels.to(device)
-            # nxhxw x nxhxw
+            # n*h*w x n*h*w
             labels_one_hot = utils.convert_to_one_hot(labels, device=device)
             # inputs = inputs.unsqueeze(1)  # add channel dimension, but ToTensorV2 already does this
             predictions = model(inputs)
@@ -104,19 +104,10 @@ def test(config_loc):
             predictions = predictions.cpu().numpy()
             labels = labels.cpu().numpy().astype(int)
 
-            # print(
-            #     np.unique(labels, return_counts=True),
-            #     np.unique(predictions, return_counts=True),
-            # )
-            # print(predictions.shape, labels_one_hot.shape, labels.shape, inputs.shape)
-            # break
-
-            # dice = utils.dice_score(predictions, labels, [0, 1, 2, 3])
             dice_lv = utils.dice_score(predictions.squeeze(), labels.squeeze(), [1])
             dice_myo = utils.dice_score(predictions.squeeze(), labels.squeeze(), [2])
             dice_la = utils.dice_score(predictions.squeeze(), labels.squeeze(), [3])
             dices = [dice_lv, dice_myo, dice_la]
-            av_dice = np.mean(dices)
 
             utils.plot_segmentation(
                 inputs[0].cpu().numpy().squeeze().T,
@@ -127,13 +118,14 @@ def test(config_loc):
                 plot_folder,
             )
             losses.append(loss)
-            # dice_scores.append(dice)
-            dice_scores.append(av_dice)
+            dice_scores.append(dices)
 
     avg_loss = np.mean(losses)
-    avg_dice = np.mean(dice_scores, axis=0)
-    # return avg_loss, avg_dice, dices
-    return avg_loss, av_dice, dices
+    avg_dice = np.mean(dice_scores)  # avg across all classes
+    avg_dice_per_class = np.mean(
+        dice_scores, axis=0
+    )  # avg across all samples, but one value per class
+    return avg_loss, avg_dice, avg_dice_per_class
 
 
 def main():
@@ -142,10 +134,10 @@ def main():
         config_loc = sys.argv[1]
     else:
         config_loc = CONST.DEFAULT_TESTING_CONFIG_LOC
-    loss, dice, dices = test(config_loc)
-    print(f"Average loss: {loss}")
-    print(f"Average dice score: {dice}")
-    print(f"Dice scores: [LV, MYO, LA] = {[round(x, 3) for x in dices]}")
+    loss, dice, dice_per_class = test(config_loc)
+    print(f"Average loss: {round(loss, 3)}")
+    print(f"Average dice score: {round(dice, 3)}")
+    print(f"Dice scores: [LV, MYO, LA] = {[round(x, 3) for x in dice_per_class]}")
 
 
 if __name__ == "__main__":
