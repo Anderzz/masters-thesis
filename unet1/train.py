@@ -136,6 +136,10 @@ def train(config_loc, verbose=True):
     )
     os.makedirs(output_dir, exist_ok=True)  # Ensure the directory exists
 
+    # setup logfile
+    log_file_path = os.path.join(output_dir, "train_log.txt")
+    sys.stdout = utils.DualLogger(log_file_path)
+
     # Create a separate logs directory within the unique run directory
     logs_dir = os.path.join(output_dir, "logs")
     os.makedirs(logs_dir, exist_ok=True)
@@ -287,6 +291,8 @@ def train(config_loc, verbose=True):
         + ".pth",
     )
     writer.close()
+    sys.stdout.close()
+    sys.stdout = sys.__stdout__  # Restore original stdout
 
 
 if __name__ == "__main__":

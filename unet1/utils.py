@@ -8,8 +8,27 @@ import utils
 import torch
 import albumentations as A
 from albumentations.pytorch.transforms import ToTensorV2
+import sys
 
 np.bool = np.bool_  # fix for medpy using np.bool_ instead of bool
+
+
+class DualLogger:
+    def __init__(self, filePath, mode="a"):
+        self.terminal = sys.stdout
+        self.log = open(filePath, mode)
+
+    def write(self, message):
+        self.terminal.write(message)
+        self.log.write(message)
+
+    def flush(self):  # This flush method is needed for python 3 compatibility.
+        # This flushes the stream to the file, but not to the terminal
+        self.log.flush()
+
+    def close(self):
+        self.log.close()
+
 
 #### evaluation utils ####
 
