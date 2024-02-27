@@ -59,7 +59,7 @@ def run_model(dataloader, optimizer, model, loss_fn, train=True, device=None):
         inputs = inputs.to(device)
         labels = labels.to(device)
         labels_one_hot = utils.convert_to_one_hot(labels, device=device)
-        # inputs = inputs.unsqueeze(1)  # add channel dimension
+        # inputs = inputs.unsqueeze(1)  # add channel dimension, but ToTensorV2 does this for us
         # Zero your gradients for every batch!
         optimizer.zero_grad()
         # Make predictions for this batch
@@ -101,7 +101,9 @@ def get_loss(loss_name, device):
     :return: loss function
     """
     if loss_name == "DICE":
-        loss_fn = utils.get_dice_loss_fn(device=device)
+        loss_fn = utils.get_dice_loss_fn(
+            device=device, one_hot=True, nb_classes=4, include_bg=True
+        )
     elif loss_name == "DICE_WEIGHTED":
         loss_fn = utils.get_weighted_dice_loss_fn(
             class_weights=[1, 1, 1], device=device

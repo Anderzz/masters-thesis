@@ -35,7 +35,7 @@ def get_loss(loss_name, device):
     :return: loss function
     """
     if loss_name == "DICE":
-        loss_fn = utils.get_dice_loss_fn(device=device)
+        loss_fn = utils.get_dice_loss_fn(device=device, nb_classes=4)
     else:
         raise NotImplementedError
     return loss_fn
