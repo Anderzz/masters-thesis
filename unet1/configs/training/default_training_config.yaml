@@ -21,7 +21,7 @@ TRAINING:
   LOSS: "DICE"
   OPTIMIZER: "Adam"
   LR: 0.001
-  PATIENCE: 15
+  PATIENCE: 1000
   BATCH_SIZE: 32
   DATA_LOADER_PARAMS: { "batch_size": 32, "shuffle": True, "num_workers": 8 }
   NOTE: "With BN"

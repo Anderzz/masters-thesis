@@ -102,7 +102,7 @@ def get_loss(loss_name, device):
     """
     if loss_name == "DICE":
         loss_fn = utils.get_dice_loss_fn(
-            device=device, one_hot=True, nb_classes=4, include_bg=True
+            device=device, one_hot=True, nb_classes=4, include_bg=False
         )
     elif loss_name == "DICE_WEIGHTED":
         loss_fn = utils.get_weighted_dice_loss_fn(
@@ -168,8 +168,8 @@ def train(config_loc, verbose=True):
             ),
             A.RandomGamma(gamma_limit=(80, 120), p=0.2),
             A.GaussNoise(var_limit=(10.0, 50.0), p=0.2),
-            # Blackout(probability=0.2, p=0.5),
-            # A.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2, p=0.5),
+            Blackout(probability=0.2, p=0.5),
+            A.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2, p=0.5),
             # A.Normalize(mean=(0.485), std=(0.229)),
             # A.Normalize(mean=(48.6671), std=(53.9987), max_pixel_value=1.0),
             ToTensorV2(),

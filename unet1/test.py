@@ -138,6 +138,7 @@ def main():
     print(f"Average loss: {round(loss, 3)}")
     print(f"Average dice score: {round(dice, 3)}")
     print(f"Dice scores: [LV, MYO, LA] = {[round(x, 3) for x in dice_per_class]}")
+    # save it to a file
 
 
 if __name__ == "__main__":

@@ -273,6 +273,12 @@ def get_splits(split_nb, splits_loc):
     train_set = text_to_set(train_loc)
     val_set = text_to_set(val_loc)
     test_set = text_to_set(test_loc)
+    # print(f"\n{val_set}\n\n{test_set}\n")
+    # # print the number of samples that are the same in the validation and test set
+    # print(
+    #     "Number of samples that are the same in the validation and test set:",
+    #     len(train_set.intersection(test_set)),
+    # )
     return train_set, val_set, test_set
 
 
