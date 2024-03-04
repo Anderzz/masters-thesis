@@ -230,6 +230,26 @@ def plot_segmentation(
     plt.close(fig)
 
 
+def plot_worst_predictions(worst_queue, plot_folder):
+    """
+    Plot the worst predictions stored in the priority queue.
+    :param worst_queue: queue.PriorityQueue, the queue containing the worst predictions
+    :param plot_folder: str, the folder to save the plots
+    """
+    worst_folder = os.path.join(plot_folder, "worst")
+    os.makedirs(worst_folder, exist_ok=True)
+    while not worst_queue.empty():
+        loss, (input_img, label, prediction, dices, idx) = worst_queue.get()
+        plot_segmentation(
+            input_img.squeeze().T,
+            label.squeeze().T,
+            prediction.squeeze().T,
+            f"worst_{idx}.png",
+            dices,
+            worst_folder,
+        )
+
+
 def serialize_augmentations(augmentations):
     """
     Serialize Albumentations augmentations into a serializable list of dicts.

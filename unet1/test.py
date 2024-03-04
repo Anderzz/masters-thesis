@@ -12,6 +12,7 @@ from albumentations.pytorch import ToTensorV2
 import utils
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+import queue
 
 
 def get_output_dir(config):
@@ -39,6 +40,24 @@ def get_loss(loss_name, device):
     else:
         raise NotImplementedError
     return loss_fn
+
+
+def handle_queue(worst_queue, item, maxsize=5):
+    """
+    Handle the updates to the priority queue.
+    :param worst_queue: queue.PriorityQueue, the priority queue to update
+    :param item: tuple, the item to insert into the queue (loss, data)
+    :param maxsize: int, the maximum size of the queue
+    """
+    if worst_queue.qsize() < maxsize:
+        worst_queue.put(item)
+    else:
+        # If the new item has a worse (higher) loss, add it to the queue
+        max_item = worst_queue.get()
+        if item[0] > max_item[0]:
+            worst_queue.put(item)
+        else:
+            worst_queue.put(max_item)
 
 
 def test(config_loc):
@@ -87,6 +106,10 @@ def test(config_loc):
     dataloader_test = torch.utils.data.DataLoader(dataset_test, **data_loader_params)
     losses = []
     dice_scores = []
+
+    # priority queue to store the worst predictions
+    worst_queue = queue.PriorityQueue(maxsize=15)
+
     print(len(dataset_test))
     with torch.no_grad():
         for i, (inputs, labels) in tqdm(
@@ -120,11 +143,20 @@ def test(config_loc):
             losses.append(loss)
             dice_scores.append(dices)
 
+            handle_queue(
+                worst_queue,
+                (loss, (inputs[0].cpu().numpy(), labels[0], predictions[0], dices, i)),
+            )
+
     avg_loss = np.mean(losses)
     avg_dice = np.mean(dice_scores)  # avg across all classes
     avg_dice_per_class = np.mean(
         dice_scores, axis=0
     )  # avg across all samples, but one value per class
+
+    # save the worst predictions
+    utils.plot_worst_predictions(worst_queue, plot_folder)
+
     return avg_loss, avg_dice, avg_dice_per_class
 
 
