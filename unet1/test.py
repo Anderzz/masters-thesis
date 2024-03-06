@@ -13,6 +13,7 @@ import utils
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import queue
+from scipy.ndimage import label
 
 
 def get_output_dir(config):
@@ -42,7 +43,7 @@ def get_loss(loss_name, device):
     return loss_fn
 
 
-def handle_queue(worst_queue, item, maxsize=5):
+def handle_queue(worst_queue, item, maxsize=15):
     """
     Handle the updates to the priority queue.
     :param worst_queue: queue.PriorityQueue, the priority queue to update
@@ -58,6 +59,39 @@ def handle_queue(worst_queue, item, maxsize=5):
             worst_queue.put(item)
         else:
             worst_queue.put(max_item)
+
+
+def keep_largest_component(segmentation):
+    # Assuming segmentation is a 2D numpy array with integer class labels
+    output_segmentation = np.zeros_like(segmentation)
+
+    # Get unique class labels, ignoring the background (assuming it's labeled as 0)
+    class_labels = np.unique(segmentation)[1:]  # Skip 0 if it's the background label
+
+    for class_label in class_labels:
+        # Create a binary mask for the current class
+        class_mask = segmentation == class_label
+
+        # Perform connected component labeling
+        labeled_array, num_features = label(class_mask)
+
+        # Skip if no features are found for the class
+        if num_features == 0:
+            continue
+
+        # Find the largest component
+        largest_component_size = 0
+        largest_component_label = 0
+        for i in range(1, num_features + 1):  # Component labels are 1-indexed
+            component_size = np.sum(labeled_array == i)
+            if component_size > largest_component_size:
+                largest_component_size = component_size
+                largest_component_label = i
+
+        # Keep only the largest component for this class in the output segmentation
+        output_segmentation[labeled_array == largest_component_label] = class_label
+
+    return output_segmentation
 
 
 def test(config_loc):
@@ -95,6 +129,7 @@ def test(config_loc):
     val_transform = A.Compose(
         [
             # A.Normalize(mean=(0.485), std=(0.229)),
+            # A.Normalize(mean=(48.6671), std=(53.9987), max_pixel_value=1.0),
             ToTensorV2(),
         ]
     )
@@ -126,6 +161,9 @@ def test(config_loc):
             predictions = torch.argmax(predictions, dim=1)
             predictions = predictions.cpu().numpy()
             labels = labels.cpu().numpy().astype(int)
+
+            # only keep the largest connected component for each class
+            predictions = keep_largest_component(predictions)
 
             dice_lv = utils.dice_score(predictions.squeeze(), labels.squeeze(), [1])
             dice_myo = utils.dice_score(predictions.squeeze(), labels.squeeze(), [2])

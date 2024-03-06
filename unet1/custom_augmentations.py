@@ -4,9 +4,9 @@ from albumentations.core.transforms_interface import DualTransform, ImageOnlyTra
 
 
 class Blackout(DualTransform):
-    def __init__(self, probability=0.5, always_apply=False, p=0.5):
+    def __init__(self, always_apply=False, p=0.5):
         super(Blackout, self).__init__(always_apply, p)
-        self.probability = probability
+        self.probability = p
 
     def apply(self, image, **params):
         # Randomize parameters for each call
