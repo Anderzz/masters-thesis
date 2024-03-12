@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torchvision
 
 
 def get_activation(activation):
@@ -537,14 +538,25 @@ class unet1_transconv(nn.Module):
         return x
 
 
+def getDeeplabv3(num_classes=4):
+    model = torchvision.models.segmentation.deeplabv3_resnet50(weights="DEFAULT")
+    # change the first layer to accept single channel input
+    model.backbone.conv1 = torch.nn.Conv2d(
+        1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False
+    )
+    # change the classifier to output the number of classes
+    model.classifier[4] = nn.Conv2d(256, num_classes, 1)
+    model.aux_classifier[4] = nn.Conv2d(256, num_classes, 1)
+    return model
+
+
 if __name__ == "__main__":
-    if __name__ == "__main__":
-        input_shape = (
-            1,
-            256,
-            256,
-        )  # Assuming input is grayscale image with shape (1, height, width)
-        model = unet1(input_shape)
-        x = torch.randn((8, 1, 256, 256))
-        y = model(x)
-        print(y.shape)
+    input_shape = (
+        1,
+        256,
+        256,
+    )  # Assuming input is grayscale image with shape (1, height, width)
+    model = unet1(input_shape)
+    x = torch.randn((8, 1, 256, 256))
+    y = model(x)
+    print(y.shape)

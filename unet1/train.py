@@ -65,7 +65,7 @@ def run_model(dataloader, optimizer, model, loss_fn, train=True, device=None):
             model.train()
         else:
             model.eval()
-        predictions = model.forward(inputs)
+        predictions = model.forward(inputs)["out"]
         # Compute the loss and its gradients
         if not train:
             with torch.no_grad():
@@ -154,6 +154,7 @@ def train(config_loc, verbose=True):
         normalize_input=True,
         normalize_inter_layer=True,
     )
+    # model = network.getDeeplabv3()
     # model = network.unet1_res(
     #     input_shape_tuple, normalize_input=True, normalize_inter_layer=True
     # )

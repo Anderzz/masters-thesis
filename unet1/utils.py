@@ -164,7 +164,7 @@ def boxplot(metric_values, save_dir, title, ylabel, xticks, save_name, show=True
     ax.set_ylabel(ylabel)
     ax.set_xticklabels(xticks)
     # set limit of y-axis to 0-1
-    ax.set_ylim([0, 1])
+    # ax.set_ylim([0, 1])
     # remove whitespace
     fig.tight_layout()
     # save plot
