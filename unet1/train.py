@@ -65,7 +65,9 @@ def run_model(dataloader, optimizer, model, loss_fn, train=True, device=None):
             model.train()
         else:
             model.eval()
-        predictions = model.forward(inputs)["out"]
+
+        predictions = model.forward(inputs)  # ["out"]
+
         # Compute the loss and its gradients
         if not train:
             with torch.no_grad():
@@ -106,6 +108,12 @@ def get_loss(loss_name, device):
         loss_fn = utils.get_weighted_dice_loss_fn(
             class_weights=[1, 1, 1], device=device
         )
+    elif loss_name == "DICE&CE":
+        print(f"Using DICE&CE loss function")
+        loss_fn = utils.get_dice_ce_loss_fn(
+            device=device, one_hot=True, nb_classes=4, include_bg=False
+        )
+
     else:
         raise NotImplementedError
     return loss_fn
@@ -166,16 +174,12 @@ def train(config_loc, verbose=True):
     train_transform = A.Compose(
         [
             A.ShiftScaleRotate(
-                shift_limit=(0.2), scale_limit=(-0.5, 0.2), rotate_limit=20, p=0.5
+                shift_limit=0.1, scale_limit=(-0.2, 0.1), rotate_limit=10, p=0.5
             ),
-            A.RandomGamma(gamma_limit=(80, 120), p=0.5),
-            # A.RandomGamma(gamma_limit=(20, 200), p=0.5),
-            A.GaussNoise(var_limit=(10.0, 50.0), p=0.2),
+            A.RandomGamma(gamma_limit=(85, 115), p=0.5),
+            A.GaussNoise(var_limit=(10.0, 25.0), p=0.2),
             Blackout(p=0.25),
-            A.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2, p=0.5),
-            # A.ColorJitter(brightness=0.0, contrast=0.0, saturation=0.0, hue=0.0, p=0.5),
-            # A.Normalize(mean=(0.485), std=(0.229)),
-            # A.Normalize(mean=(48.6671), std=(53.9987), max_pixel_value=1.0),
+            A.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1, p=0.5),
             ToTensorV2(),
         ]
     )

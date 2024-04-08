@@ -6,6 +6,7 @@ from PIL import Image
 from skimage.transform import resize
 import utils
 import torch
+import torch.nn as nn
 import albumentations as A
 from albumentations.pytorch.transforms import ToTensorV2
 import sys
@@ -367,6 +368,23 @@ def get_dice_loss_fn(
     )
 
 
+def get_dice_ce_loss_fn(
+    nb_classes=3, epsilon=1e-10, include_bg=False, one_hot=True, device="cpu"
+):
+    """
+    Return dice loss function with given parameters
+    """
+    return lambda target, output: dice_ce_loss(
+        target,
+        output,
+        nb_classes=nb_classes,
+        epsilon=epsilon,
+        include_bg=include_bg,
+        device=device,
+        one_hot=one_hot,
+    )
+
+
 def get_weighted_dice_loss_fn(
     class_weights=None,
     nb_classes=3,
@@ -430,6 +448,61 @@ def dice_loss(
         dice += (2.0 * intersection_obj + smooth) / (union_obj + smooth)
     dice /= nb_classes - 1
     return -torch.clamp(dice, 0.0, 1.0 - epsilon)
+
+
+def dice_ce_loss(
+    output,
+    target,
+    nb_classes=3,
+    epsilon=1e-10,
+    include_bg=False,
+    one_hot=True,
+    device="cpu",
+):
+    """
+    Calculate combined dice and cross-entropy loss for given target and output.
+    :param output: predicted segmentation
+    :param target: target segmentation
+    :param nb_classes: number of classes
+    :param epsilon: epsilon parameter for numerical stability
+    :param include_bg: whether to include background in loss calculation or not
+    :param one_hot: whether the target and output are in one-hot encoding or not. If not, they are converted to one-hot
+                    encoding.
+    :param device: device used by pytorch
+    :return: combined dice and cross-entropy loss
+    """
+    if not one_hot:
+        target = convert_to_one_hot(target, nb_classes=nb_classes, device=device)
+        output = convert_to_one_hot(output, nb_classes=nb_classes, device=device)
+
+    # Dice loss calculation
+    smooth = 1.0
+    dice_loss = 0
+    if include_bg:
+        start_idx = 0
+    else:
+        start_idx = 1
+    for obj in range(start_idx, nb_classes):
+        output_obj = output[:, obj, :, :]
+        target_obj = target[:, obj, :, :]
+        intersection_obj = torch.sum(output_obj * target_obj)
+        union_obj = torch.sum(output_obj * output_obj) + torch.sum(
+            target_obj * target_obj
+        )
+        dice_loss += (2.0 * intersection_obj + smooth) / (union_obj + smooth)
+    dice_loss /= nb_classes - 1
+    dice_loss = -torch.clamp(dice_loss, 0.0, 1.0 - epsilon)
+
+    # Cross-entropy loss calculation
+    if one_hot:
+        target = torch.argmax(
+            target, dim=1
+        )  # Convert one-hot to indices for cross-entropy
+    ce_loss = nn.CrossEntropyLoss()(output, target)
+
+    # Combining both losses
+    combined_loss = dice_loss + ce_loss
+    return combined_loss
 
 
 def weighted_dice_loss(

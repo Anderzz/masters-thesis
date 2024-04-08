@@ -212,11 +212,11 @@ def test(config_loc):
     )
 
     title_hausdorf_scores = (
-        ("Boxplot of Hausdorff distance per label: \n" "Avg LV distance: ")
+        ("Boxplot of avg Hausdorff distance per label: \n" "LV: ")
         + str(np.round(np.mean(hausdorf_per_class[0]), 2))
-        + ", Avg Myo distance: "
+        + ", MYO: "
         + str(np.round(np.mean(hausdorf_per_class[1]), 2))
-        + ", Avg LA distance: "
+        + ", LA: "
         + str(np.round(np.mean(hausdorf_per_class[2]), 2))
         + "\n"
     )
