@@ -147,12 +147,17 @@ def train(config_loc, verbose=True):
     :param config_loc: str, path to the config file
     :param verbose: bool, whether to print progress or not
     """
-    if verbose:
-        print("Running preprocessing with config file: " + config_loc)
     config = yaml.load(open(config_loc), Loader=yaml.loader.SafeLoader)
-    splits = utils.get_splits(config["SPLIT_NB"], config["CAMUS_SPLITS_LOCATION"])
-    train_set, val_set, test_set = splits
-    train_val_loc = os.path.join(config["PREPROCESSING_OUT_LOC"], "train_val")
+    train_txt_path = config["TRAIN_TXT_PATH"]
+    val_txt_path = config["VAL_TXT_PATH"]
+    # read the txts
+    with open(train_txt_path, "r") as f:
+        train_set = f.readlines()
+    train_set = [x.strip() for x in train_set]
+    with open(val_txt_path, "r") as f:
+        val_set = f.readlines()
+    val_set = [x.strip() for x in val_set]
+
     device = utils.set_up_gpu(config["GPU"])
     print(f'Running on device: {device} for {config["TRAINING"]["NB_EPOCHS"]} epochs.')
 
@@ -243,17 +248,13 @@ def train(config_loc, verbose=True):
     if verbose:
         total_nb_params = sum(p.numel() for p in model.parameters())
         print("total number of params: " + str(total_nb_params))
-    dataset_train = data_loader.Labeled_dataset(
+    dataset_train = data_loader.Hunt4Dataset(
         train_set,
-        train_val_loc,
-        augmentation_params=config["TRAINING"]["AUGMENTATION_PARAMS"],
         transform=train_transform,
     )
     data_loader_params = config["TRAINING"]["DATA_LOADER_PARAMS"]
     dataloader_train = torch.utils.data.DataLoader(dataset_train, **data_loader_params)
-    dataset_validation = data_loader.Labeled_dataset(
-        val_set, train_val_loc, transform=val_transform
-    )
+    dataset_validation = data_loader.Hunt4Dataset(val_set, transform=val_transform)
     print(dataset_train[0][0].shape, dataset_train[0][1].shape)
     dataloader_validation = torch.utils.data.DataLoader(
         dataset_validation, **data_loader_params
@@ -372,7 +373,7 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         config_loc = sys.argv[1]
     else:
-        config_loc = CONST.DEFAULT_TRAINING_CONFIG_LOC
+        config_loc = CONST.DEFAULT_TRAINING_CONFIG_LOC_HUNT4
 
     print("Converting CAMUS data to numpy format..")
     train(config_loc)

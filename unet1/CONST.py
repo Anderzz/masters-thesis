@@ -21,3 +21,11 @@ DEFAULT_TRAINING_CONFIG_LOC = os.path.join(
 DEFAULT_TESTING_CONFIG_LOC = os.path.join(
     this_file_path, "configs/testing/default_testing_config.yaml"
 )
+
+DEFAULT_TRAINING_CONFIG_LOC_HUNT4 = os.path.join(
+    this_file_path, "configs/training/training_config_hunt4.yaml"
+)
+
+DEFAULT_TESTING_CONFIG_LOC_HUNT4 = os.path.join(
+    this_file_path, "configs/testing/testing_config_hunt4.yaml"
+)

@@ -157,6 +157,7 @@ class unet1(nn.Module):
         activation_inter_layer="relu",
         normalize_input=False,
         normalize_inter_layer=False,
+        use_deep_supervision=False,
         nb_classes=4,
         final_activation="softmax",
     ):
@@ -165,6 +166,13 @@ class unet1(nn.Module):
         self.normalize_input = (
             nn.BatchNorm2d(input_shape[0]) if normalize_input else nn.Identity()
         )
+        self.use_deep_supervision = use_deep_supervision
+        if self.use_deep_supervision:
+            print("Using deep supervision.")
+            self.ds1 = nn.Conv2d(128, nb_classes, kernel_size=(1, 1))
+            self.ds2 = nn.Conv2d(128, nb_classes, kernel_size=(1, 1))
+            self.ds3 = nn.Conv2d(64, nb_classes, kernel_size=(1, 1))
+            self.ds4 = nn.Conv2d(32, nb_classes, kernel_size=(1, 1))
 
         self.down1 = ConvolutionBlock(
             input_shape[0],
@@ -280,11 +288,208 @@ class unet1(nn.Module):
         x = torch.cat([down1_x, x], dim=1)
         up5_x = self.up5(x)
 
+        if self.use_deep_supervision:
+            ds1_out = self.ds1(up1_x)
+            ds1_out = F.interpolate(
+                ds1_out, scale_factor=16, mode="bilinear", align_corners=True
+            )
+            ds2_out = self.ds2(up2_x)
+            ds2_out = F.interpolate(
+                ds2_out, scale_factor=8, mode="bilinear", align_corners=True
+            )
+            ds3_out = self.ds3(up3_x)
+            ds3_out = F.interpolate(
+                ds3_out, scale_factor=4, mode="bilinear", align_corners=True
+            )
+            ds4_out = self.ds4(up4_x)
+            ds4_out = F.interpolate(
+                ds4_out, scale_factor=2, mode="bilinear", align_corners=True
+            )
+
         seg_x = self.seg(up5_x)
         out_x = self.final_activation(seg_x)
 
         if not batch:
             out_x = out_x.squeeze(0)
+
+        if self.use_deep_supervision:
+            return out_x, ds1_out, ds2_out, ds3_out, ds4_out
+
+        return out_x
+
+
+class unet2(nn.Module):
+
+    def __init__(
+        self,
+        input_shape=(1, 256, 256),
+        activation_inter_layer="relu",
+        normalize_input=False,
+        normalize_inter_layer=False,
+        use_deep_supervision=False,
+        nb_classes=4,
+        final_activation="softmax",
+    ):
+        super(unet2, self).__init__()
+
+        self.normalize_input = (
+            nn.BatchNorm2d(input_shape[0]) if normalize_input else nn.Identity()
+        )
+
+        self.use_deep_supervision = use_deep_supervision
+        if self.use_deep_supervision:
+            print("Using deep supervision.")
+            self.ds1 = nn.Conv2d(256, nb_classes, kernel_size=(1, 1))
+            self.ds2 = nn.Conv2d(256, nb_classes, kernel_size=(1, 1))
+            self.ds3 = nn.Conv2d(128, nb_classes, kernel_size=(1, 1))
+            self.ds4 = nn.Conv2d(64, nb_classes, kernel_size=(1, 1))
+
+        self.down1 = ConvolutionBlock(
+            input_shape[0],
+            64,  # Increased from 32 to 64
+            kernel_size=(3, 3),
+            activation=activation_inter_layer,
+            batch_normalization=normalize_inter_layer,
+        )
+        self.down2 = ConvolutionBlock(
+            64,  # Increased from 32 to 64
+            64,  # Increased from 32 to 64
+            kernel_size=(3, 3),
+            activation=activation_inter_layer,
+            batch_normalization=normalize_inter_layer,
+        )
+        self.down3 = ConvolutionBlock(
+            64,  # Increased from 32 to 64
+            128,  # Increased from 64 to 128
+            kernel_size=(3, 3),
+            activation=activation_inter_layer,
+            batch_normalization=normalize_inter_layer,
+        )
+        self.down4 = ConvolutionBlock(
+            128,
+            256,  # Increased from 128 to 256
+            kernel_size=(3, 3),
+            activation=activation_inter_layer,
+            batch_normalization=normalize_inter_layer,
+        )
+        self.down5 = ConvolutionBlock(
+            256,
+            256,  # Increased from 128 to 256
+            kernel_size=(3, 3),
+            activation=activation_inter_layer,
+            batch_normalization=normalize_inter_layer,
+        )
+        self.down6 = ConvolutionBlock(
+            256,
+            512,  # Increased from 128 to 512
+            kernel_size=(3, 3),
+            activation=activation_inter_layer,
+            batch_normalization=normalize_inter_layer,
+        )
+
+        # Adjusting the channels in the upward path to match the new channel dimensions
+        self.up1 = ConvolutionBlock(
+            512 + 256,  # Increased from 256 + 128
+            256,  # Increased from 128 to 256
+            kernel_size=(3, 3),
+            activation=activation_inter_layer,
+            batch_normalization=normalize_inter_layer,
+        )
+        self.up2 = ConvolutionBlock(
+            256 + 256,  # Increased from 256 + 128
+            256,  # Increased from 128 to 256
+            kernel_size=(3, 3),
+            activation=activation_inter_layer,
+            batch_normalization=normalize_inter_layer,
+        )
+        self.up3 = ConvolutionBlock(
+            256 + 128,  # Increased from 192 + 64
+            128,  # Increased from 64 to 128
+            kernel_size=(3, 3),
+            activation=activation_inter_layer,
+            batch_normalization=normalize_inter_layer,
+        )
+        self.up4 = ConvolutionBlock(
+            128 + 64,  # Increased from 96 + 32
+            64,  # Increased from 32 to 64
+            kernel_size=(3, 3),
+            activation=activation_inter_layer,
+            batch_normalization=normalize_inter_layer,
+        )
+        self.up5 = ConvolutionBlock(
+            64 + 64,  # Increased from 64 + 32
+            32,  # Increased from 16 to 32
+            kernel_size=(3, 3),
+            activation=activation_inter_layer,
+            batch_normalization=normalize_inter_layer,
+        )
+
+        # Adjusting the final convolution to match the new channel dimensions
+        self.seg = nn.Conv2d(
+            32, nb_classes, kernel_size=(1, 1)
+        )  # Input channels increased from 16 to 32
+        self.final_activation = get_activation(final_activation)
+
+    def forward(self, x):
+        x, batch = make_batch(x)
+
+        x = self.normalize_input(x)
+
+        down1_x = self.down1(x)
+        x = F.max_pool2d(down1_x, kernel_size=2)
+        down2_x = self.down2(x)
+        x = F.max_pool2d(down2_x, kernel_size=2)
+        down3_x = self.down3(x)
+        x = F.max_pool2d(down3_x, kernel_size=2)
+        down4_x = self.down4(x)
+        x = F.max_pool2d(down4_x, kernel_size=2)
+        down5_x = self.down5(x)
+        x = F.max_pool2d(down5_x, kernel_size=2)
+        down6_x = self.down6(x)
+
+        x = F.interpolate(down6_x, scale_factor=2, mode="nearest")
+        x = torch.cat([down5_x, x], dim=1)
+        up1_x = self.up1(x)
+        x = F.interpolate(up1_x, scale_factor=2, mode="nearest")
+        x = torch.cat([down4_x, x], dim=1)
+        up2_x = self.up2(x)
+        x = F.interpolate(up2_x, scale_factor=2, mode="nearest")
+        x = torch.cat([down3_x, x], dim=1)
+        up3_x = self.up3(x)
+        x = F.interpolate(up3_x, scale_factor=2, mode="nearest")
+        x = torch.cat([down2_x, x], dim=1)
+        up4_x = self.up4(x)
+        x = F.interpolate(up4_x, scale_factor=2, mode="nearest")
+        x = torch.cat([down1_x, x], dim=1)
+        up5_x = self.up5(x)
+
+        if self.use_deep_supervision:
+            ds1_out = self.ds1(up1_x)
+            ds1_out = F.interpolate(
+                ds1_out, scale_factor=16, mode="bilinear", align_corners=True
+            )
+            ds2_out = self.ds2(up2_x)
+            ds2_out = F.interpolate(
+                ds2_out, scale_factor=8, mode="bilinear", align_corners=True
+            )
+            ds3_out = self.ds3(up3_x)
+            ds3_out = F.interpolate(
+                ds3_out, scale_factor=4, mode="bilinear", align_corners=True
+            )
+            ds4_out = self.ds4(up4_x)
+            ds4_out = F.interpolate(
+                ds4_out, scale_factor=2, mode="bilinear", align_corners=True
+            )
+
+        seg_x = self.seg(up5_x)
+        out_x = self.final_activation(seg_x)
+
+        if not batch:
+            out_x = out_x.squeeze(0)
+
+        if self.use_deep_supervision:
+            return out_x, ds1_out, ds2_out, ds3_out, ds4_out
+
         return out_x
 
 

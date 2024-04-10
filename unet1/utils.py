@@ -385,6 +385,23 @@ def get_dice_ce_loss_fn(
     )
 
 
+def get_dice_deep_supervision_loss_fn(
+    nb_classes=3, epsilon=1e-10, include_bg=False, one_hot=True, device="cpu"
+):
+    """
+    Return dice loss function with given parameters
+    """
+    return lambda output, target: dice_deep_supervision_loss(
+        output,
+        target,
+        nb_classes=nb_classes,
+        epsilon=epsilon,
+        include_bg=include_bg,
+        device=device,
+        one_hot=one_hot,
+    )
+
+
 def get_weighted_dice_loss_fn(
     class_weights=None,
     nb_classes=3,
@@ -406,6 +423,11 @@ def get_weighted_dice_loss_fn(
         device=device,
         one_hot=one_hot,
     )
+
+
+def cross_entropy_loss(output, target, device="cpu"):
+    criterion = nn.CrossEntropyLoss()
+    return criterion(output, target)
 
 
 def dice_loss(
@@ -448,6 +470,81 @@ def dice_loss(
         dice += (2.0 * intersection_obj + smooth) / (union_obj + smooth)
     dice /= nb_classes - 1
     return -torch.clamp(dice, 0.0, 1.0 - epsilon)
+
+
+def dice_deep_supervision_loss(
+    output,
+    target,
+    nb_classes=3,
+    epsilon=1e-10,
+    include_bg=False,
+    one_hot=True,
+    device="cpu",
+):
+    final_out, ds1, ds2, ds3, ds4 = output
+    loss_dice = (
+        dice_loss(
+            final_out,
+            target,
+            nb_classes=nb_classes,
+            epsilon=epsilon,
+            include_bg=include_bg,
+            one_hot=one_hot,
+            device=device,
+        )
+        + 0.3
+        * dice_loss(
+            ds1,
+            target,
+            nb_classes=nb_classes,
+            epsilon=epsilon,
+            include_bg=include_bg,
+            one_hot=one_hot,
+            device=device,
+        )
+        + 0.3
+        * dice_loss(
+            ds2,
+            target,
+            nb_classes=nb_classes,
+            epsilon=epsilon,
+            include_bg=include_bg,
+            one_hot=one_hot,
+            device=device,
+        )
+        + 0.3
+        * dice_loss(
+            ds3,
+            target,
+            nb_classes=nb_classes,
+            epsilon=epsilon,
+            include_bg=include_bg,
+            one_hot=one_hot,
+            device=device,
+        )
+        + 0.3
+        * dice_loss(
+            ds4,
+            target,
+            nb_classes=nb_classes,
+            epsilon=epsilon,
+            include_bg=include_bg,
+            one_hot=one_hot,
+            device=device,
+        )
+    )
+
+    # cross_entropy_loss_total = (
+    #     cross_entropy_loss(final_out, target, device)
+    #     + 0.3 * cross_entropy_loss(ds1, target, device)
+    #     + 0.3 * cross_entropy_loss(ds2, target, device)
+    #     + 0.3 * cross_entropy_loss(ds3, target, device)
+    #     + 0.3 * cross_entropy_loss(ds4, target, device)
+    # )
+
+    # combined_loss = (loss_dice + cross_entropy_loss_total) / 2
+    # return combined_loss
+    return loss_dice
 
 
 def dice_ce_loss(
@@ -501,7 +598,8 @@ def dice_ce_loss(
     ce_loss = nn.CrossEntropyLoss()(output, target)
 
     # Combining both losses
-    combined_loss = dice_loss + ce_loss
+    combined_loss = (dice_loss + ce_loss) / 2
+
     return combined_loss
 
 
@@ -564,4 +662,4 @@ if __name__ == "__main__":
     # quick test code
     seg = np.array([[0, 0, 1, 1, 0, 0], [0, 0, 1, 1, 0, 0]])
     gt = np.array([[0, 0, 0, 1, 0, 0], [0, 0, 1, 1, 0, 0]])
-    print(dice_score(seg, gt, [1]))
+    print(dice_ce_loss(seg, gt, [1]))

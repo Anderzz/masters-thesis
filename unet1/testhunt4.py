@@ -121,9 +121,11 @@ def test(config_loc):
     print("Saving results to: " + plot_folder)
     os.makedirs(plot_folder, exist_ok=True)
 
-    splits = utils.get_splits(config["SPLIT_NB"], config["CAMUS_SPLITS_LOCATION"])
-    train_set, val_set, test_set = splits
-    test_loc = os.path.join(config["PREPROCESSING_OUT_LOC"], "test")
+    test_txt_path = config["TEST_TXT_PATH"]
+    with open(test_txt_path, "r") as f:
+        test_set = f.readlines()
+    test_set = [x.strip() for x in test_set]
+
     device = utils.set_up_gpu(config["GPU"])
 
     model_path = config["MODEL"]["PATH_TO_MODEL"]
@@ -159,9 +161,7 @@ def test(config_loc):
     )
 
     data_loader_params = config["TESTING"]["DATA_LOADER_PARAMS"]
-    dataset_test = data_loader.Labeled_dataset(
-        test_set, test_loc, transform=val_transform
-    )
+    dataset_test = data_loader.Hunt4Dataset(test_set, transform=val_transform)
     dataloader_test = torch.utils.data.DataLoader(dataset_test, **data_loader_params)
     losses = []
     dice_scores = []
@@ -278,7 +278,7 @@ def main():
     if len(sys.argv) > 1:
         config_loc = sys.argv[1]
     else:
-        config_loc = CONST.DEFAULT_TESTING_CONFIG_LOC
+        config_loc = CONST.DEFAULT_TESTING_CONFIG_LOC_HUNT4
     loss, dice, dice_per_class = test(config_loc)
     print(f"Average loss: {round(loss, 3)}")
     print(f"Average dice score: {round(dice, 3)}")

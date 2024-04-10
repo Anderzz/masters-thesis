@@ -119,6 +119,31 @@ class Labeled_dataset(torch.utils.data.Dataset):
         self.list_IDs = np.arange(index)
 
 
+class Hunt4Dataset(torch.utils.data.Dataset):
+    def __init__(self, file_paths, transform=None):
+        self.file_paths = file_paths
+        self.transform = transform
+
+        if self.transform is not None:
+            print("Transforms:")
+            for transform in self.transform:
+                print(f"    {transform.__class__.__name__}")
+
+    def __len__(self):
+        return len(self.file_paths)
+
+    def __getitem__(self, idx):
+        X = np.load(self.file_paths[idx].replace("_gt", ""), allow_pickle=True)
+        y = np.load(self.file_paths[idx], allow_pickle=True)
+        X = X.astype(np.float32)
+        y = y.astype(np.float32)
+        if self.transform is not None:
+            transformed = self.transform(image=X, mask=y)
+            X = transformed["image"]
+            y = transformed["mask"]
+        return X, y
+
+
 if __name__ == "__main__":
     import augmentations
 
