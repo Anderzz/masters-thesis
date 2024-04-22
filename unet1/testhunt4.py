@@ -206,9 +206,9 @@ def test(config_loc):
             hausdorf_scores.append([hausdorf_lv, hausdorf_myo, hausdorf_la])
 
             utils.plot_segmentation(
-                inputs[0].cpu().numpy().squeeze().T,
-                labels[0].squeeze().T,
-                predictions[0].squeeze().T,
+                inputs[0].cpu().numpy().squeeze(),
+                labels[0].squeeze(),
+                predictions[0].squeeze(),
                 f"{i}.png",
                 dices,
                 plot_folder,

@@ -129,6 +129,7 @@ def get_loss(loss_name, device):
             device=device, one_hot=True, nb_classes=4, include_bg=False
         )
     elif loss_name == "DICE_DS":
+        print(f"Using DICE_DS loss function")
         loss_fn = utils.get_dice_deep_supervision_loss_fn(
             device=device, one_hot=True, nb_classes=4, include_bg=False
         )
@@ -198,10 +199,10 @@ def train(config_loc, verbose=True):
             A.ShiftScaleRotate(
                 shift_limit=0.1, scale_limit=(-0.2, 0.1), rotate_limit=10, p=0.5
             ),
-            A.RandomGamma(gamma_limit=(85, 115), p=0.5),
-            A.GaussNoise(var_limit=(10.0, 25.0), p=0.2),
-            Blackout(p=0.25),
-            A.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1, p=0.5),
+            # A.RandomGamma(gamma_limit=(85, 115), p=0.5),
+            # A.GaussNoise(var_limit=(10.0, 25.0), p=0.2),
+            # Blackout(p=0.25),
+            # A.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1, p=0.5),
             ToTensorV2(),
         ]
     )

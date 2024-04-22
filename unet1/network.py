@@ -9,6 +9,8 @@ def get_activation(activation):
         return nn.GELU()
     elif activation == "relu":
         return nn.ReLU()
+    elif activation == "leaky_relu":
+        return nn.LeakyReLU()
     elif activation == "softmax":
         return nn.Softmax(dim=1)
     elif activation == "sigmoid":
@@ -290,21 +292,13 @@ class unet1(nn.Module):
 
         if self.use_deep_supervision:
             ds1_out = self.ds1(up1_x)
-            ds1_out = F.interpolate(
-                ds1_out, scale_factor=16, mode="bilinear", align_corners=True
-            )
+            ds1_out = F.interpolate(ds1_out, scale_factor=16, mode="nearest")
             ds2_out = self.ds2(up2_x)
-            ds2_out = F.interpolate(
-                ds2_out, scale_factor=8, mode="bilinear", align_corners=True
-            )
+            ds2_out = F.interpolate(ds2_out, scale_factor=8, mode="nearest")
             ds3_out = self.ds3(up3_x)
-            ds3_out = F.interpolate(
-                ds3_out, scale_factor=4, mode="bilinear", align_corners=True
-            )
+            ds3_out = F.interpolate(ds3_out, scale_factor=4, mode="nearest")
             ds4_out = self.ds4(up4_x)
-            ds4_out = F.interpolate(
-                ds4_out, scale_factor=2, mode="bilinear", align_corners=True
-            )
+            ds4_out = F.interpolate(ds4_out, scale_factor=2, mode="nearest")
 
         seg_x = self.seg(up5_x)
         out_x = self.final_activation(seg_x)

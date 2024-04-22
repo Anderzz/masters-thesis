@@ -30,5 +30,5 @@ MODEL:
   # PATH_TO_MODEL: /home/andekje/masters-thesis/unet1/experiments/vanilla_unet1/baseline/model_epoch_9_dice_0.89.pth
   # PATH_TO_MODEL: /home/andekje/masters-thesis/unet1/experiments/vanilla_unet1/20240221-141819/model_epoch_83_dice_0.49.pth
   # PATH_TO_MODEL: /home/andekje/masters-thesis/unet1/experiments/vanilla_unet1/20240409-094320/model_epoch_76_dice_0.9.pth
-  PATH_TO_MODEL: /home/andekje/masters-thesis/unet1/experiments/vanilla_unet1/20240409-165629/model_epoch_66_dice_0.9.pth
+  PATH_TO_MODEL: /home/andekje/masters-thesis/unet1/experiments/vanilla_unet1/20240417-160908/model_epoch_21_dice_0.9.pth
   # add more model specific parameters here

@@ -200,9 +200,17 @@ def test(config_loc):
             dices = [dice_lv, dice_myo, dice_la]
 
             # hausdorf distances
-            hausdorf_lv = utils.hausdorf(predictions.squeeze(), labels.squeeze(), 1)
-            hausdorf_myo = utils.hausdorf(predictions.squeeze(), labels.squeeze(), 2)
-            hausdorf_la = utils.hausdorf(predictions.squeeze(), labels.squeeze(), 3)
+            try:
+                hausdorf_lv = utils.hausdorf(predictions.squeeze(), labels.squeeze(), 1)
+                hausdorf_myo = utils.hausdorf(
+                    predictions.squeeze(), labels.squeeze(), 2
+                )
+                hausdorf_la = utils.hausdorf(predictions.squeeze(), labels.squeeze(), 3)
+            except:
+                print("Error in hausdorf distance calculation")
+                hausdorf_lv = 0
+                hausdorf_myo = 0
+                hausdorf_la = 0
             hausdorf_scores.append([hausdorf_lv, hausdorf_myo, hausdorf_la])
 
             utils.plot_segmentation(

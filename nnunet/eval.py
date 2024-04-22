@@ -33,6 +33,7 @@ def run_eval(config_loc, verbose=True):
     if not os.path.exists(plot_folder):
         os.makedirs(plot_folder)
     all_dices = []
+    hausdorff_scores = []
 
     for sample in tqdm(os.listdir(config["INPUT_DIR_IMAGES"])):
         # repalce _0000.png by .png
@@ -52,8 +53,16 @@ def run_eval(config_loc, verbose=True):
         all_dices.append(dices)
         utils.plot_segmentation(us_image, anno, pred, sample_name, dices, plot_folder)
 
+        # hausdorf distances
+        hausdorf_lv = utils.hausdorf(pred.squeeze(), anno.squeeze(), 1)
+        hausdorf_myo = utils.hausdorf(pred.squeeze(), anno.squeeze(), 2)
+        hausdorf_la = utils.hausdorf(pred.squeeze(), anno.squeeze(), 3)
+        hausdorff_scores.append([hausdorf_lv, hausdorf_myo, hausdorf_la])
+
     all_dices = np.array(all_dices)
     all_dices_per_class = all_dices.T
+    hausdorff_scores = np.array(hausdorff_scores)
+    hausdorff_per_class = hausdorff_scores.T
     title_dice_scores = (
         ("Boxplot of Dice scores per label: \n" "Average LV Dice: ")
         + str(np.round(np.mean(all_dices_per_class[0]), 2))
@@ -62,6 +71,23 @@ def run_eval(config_loc, verbose=True):
         + ", Average LA Dice: "
         + str(np.round(np.mean(all_dices_per_class[2]), 2))
         + "\n"
+    )
+    title_hausdorf_scores = (
+        ("Boxplot of avg Hausdorff distance per label: \n" "LV: ")
+        + str(np.round(np.mean(hausdorff_per_class[0]), 2))
+        + ", MYO: "
+        + str(np.round(np.mean(hausdorff_per_class[1]), 2))
+        + ", LA: "
+        + str(np.round(np.mean(hausdorff_per_class[2]), 2))
+        + "\n"
+    )
+    utils.boxplot(
+        hausdorff_scores,
+        out_dir,
+        title_hausdorf_scores,
+        "Hausdorff distance",
+        ["LV", "Myo", "LA"],
+        "boxplot_hausdorff.png",
     )
     utils.boxplot(
         all_dices,
