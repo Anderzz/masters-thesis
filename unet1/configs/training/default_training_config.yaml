@@ -18,17 +18,17 @@ TRAINING:
   MEAN: 0
   STD: 0
   NB_EPOCHS: 100
-  LOSS: "DICE&CE"
+  LOSS: "DICE"
   OPTIMIZER: "Adam"
   LR: 0.001
   PATIENCE: 20
   BATCH_SIZE: 32
-  DATA_LOADER_PARAMS: { "batch_size": 16, "shuffle": True, "num_workers": 8 }
+  DATA_LOADER_PARAMS: { "batch_size": 32, "shuffle": True, "num_workers": 8 }
   NOTE: "With BN"
 
 REL_OUT_DIR: "vanilla_unet1"
 
 MODEL:
   INPUT_SHAPE: 1,256,256
-  DEEP_SUPERVISION: True
+  DEEP_SUPERVISION: False
   # add more model specific parameters here

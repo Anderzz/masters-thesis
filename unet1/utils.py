@@ -231,6 +231,54 @@ def plot_segmentation(
     plt.close(fig)
 
 
+def plot_ds_segmentation(
+    us_image, anno, pred, sample_name, dices, plot_folder, show=False
+):
+    """
+    Plot annotation and prediction of a single sample
+    :param us_image: ultrasound image
+    :param anno: annotation of segmentation masks ('ground truth')
+    :param pred: prediction by model
+    :param sample_name: name of sample
+    :param dices: dice scores of prediction compared to annotation. This is a list with dice scores for each of the
+                three class, i.e. [dice_lv,dice_myo,dice_la]
+    :param plot_folder: folder to save plot to
+    :param show: whether to show plot or not
+    """
+    # plot anno and pred
+    fig, ax = plt.subplots(1, 2)
+    # visualization paints the segmentation on top of the ultrasound image
+    visual_anno = utils.create_visualization(
+        us_image,
+        anno,
+        labels=[1, 2, 3],
+        colors=np.array([(1, 0, 0), (0, 1, 0), (0, 0, 1)]),
+    )
+    ax[0].imshow(visual_anno)
+    visual_pred = utils.create_visualization(
+        us_image,
+        pred,
+        labels=[1, 2, 3],
+        colors=np.array([(1, 0, 0), (0, 1, 0), (0, 0, 1)]),
+    )
+    ax[1].imshow(visual_pred)
+    # set titles
+    ax[0].set_title("Annotation")
+    ax[1].set_title("Prediction")
+    dice_lv, dice_myo, dice_la = dices
+    # set main title
+    # remove axis
+    ax[0].axis("off")
+    ax[1].axis("off")
+    # remove whitespace
+    fig.tight_layout()
+    # save plot
+    fig.savefig(os.path.join(plot_folder, sample_name))
+    if show:
+        plt.show()
+    plt.close(fig)
+
+
 def plot_worst_predictions(worst_queue, plot_folder):
     """
     Plot the worst predictions stored in the priority queue.

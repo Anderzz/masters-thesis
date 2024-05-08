@@ -13,7 +13,7 @@ import utils
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import queue
-from scipy.ndimage import label
+from scipy.ndimage import label, binary_dilation, binary_erosion
 
 
 def get_output_dir(config):
@@ -110,6 +110,74 @@ def keep_largest_component(segmentation):
     return output_segmentation
 
 
+def opening(segmentation, structure=None):
+    if segmentation.ndim == 3 and segmentation.shape[0] == 1:
+        segmentation_2d = segmentation[0]  # Access the single 2D image
+    else:
+        raise ValueError("Segmentation shape is not as expected.")
+
+    # Get unique class labels, ignoring the background (assuming it's labeled as 0)
+    class_labels = np.unique(segmentation_2d)
+    if 0 in class_labels:
+        class_labels = class_labels[1:]  # Skip the background
+
+    # Create a 3x3 square structuring element
+    structure = np.ones((3, 3), dtype=bool)
+
+    # Initialize output segmentation array
+    output_segmentation = np.zeros_like(segmentation_2d)
+
+    for class_label in class_labels:
+        # Create a binary mask for the current class
+        class_mask = segmentation_2d == class_label
+
+        # Apply dilation followed by erosion
+        eroded_mask = binary_erosion(class_mask, structure=structure)
+        dilated_mask = binary_dilation(eroded_mask, structure=structure)
+
+        # Update the output segmentation with the processed class mask
+        output_segmentation[dilated_mask] = class_label
+
+    # If needed to fit original shape
+    return output_segmentation[
+        np.newaxis, :, :
+    ]  # Adds the first dimension back if needed
+
+
+def closing(segmentation, structure=None):
+    if segmentation.ndim == 3 and segmentation.shape[0] == 1:
+        segmentation_2d = segmentation[0]  # Access the single 2D image
+    else:
+        raise ValueError("Segmentation shape is not as expected.")
+
+    # Get unique class labels, ignoring the background (assuming it's labeled as 0)
+    class_labels = np.unique(segmentation_2d)
+    if 0 in class_labels:
+        class_labels = class_labels[1:]  # Skip the background
+
+    # Create a 3x3 square structuring element
+    structure = np.ones((3, 3), dtype=bool)
+
+    # Initialize output segmentation array
+    output_segmentation = np.zeros_like(segmentation_2d)
+
+    for class_label in class_labels:
+        # Create a binary mask for the current class
+        class_mask = segmentation_2d == class_label
+
+        # Apply dilation followed by erosion
+        dilated_mask = binary_dilation(class_mask, structure=structure)
+        eroded_mask = binary_erosion(dilated_mask, structure=structure)
+
+        # Update the output segmentation with the processed class mask
+        output_segmentation[eroded_mask] = class_label
+
+    # If needed to fit original shape
+    return output_segmentation[
+        np.newaxis, :, :
+    ]  # Adds the first dimension back if needed
+
+
 def test(config_loc):
     print("Loading configuration from:", config_loc)
     with open(config_loc, "r") as file:
@@ -118,8 +186,10 @@ def test(config_loc):
     # out_dir = os.path.join(CONST.EXPERIMENTS_DIR, config["REL_OUT_DIR"])
     out_dir = "/".join(config["MODEL"]["PATH_TO_MODEL"].split("/")[:-1])
     plot_folder = os.path.join(out_dir, "plots")
+    plot_folder_ds = os.path.join(out_dir, "plots_ds")
     print("Saving results to: " + plot_folder)
     os.makedirs(plot_folder, exist_ok=True)
+    os.makedirs(plot_folder_ds, exist_ok=True)
 
     splits = utils.get_splits(config["SPLIT_NB"], config["CAMUS_SPLITS_LOCATION"])
     train_set, val_set, test_set = splits
@@ -132,9 +202,17 @@ def test(config_loc):
     input_shape_tuple = tuple([int(x) for x in input_shape.split(",")])
 
     use_ds = config["MODEL"]["DEEP_SUPERVISION"]
+    # use_ds = False
     # if use_ds:
     #     loss_fn = get_loss("DICE_DS", device)
 
+    # model = network.unet1(
+    #     input_shape_tuple,
+    #     activation_inter_layer="mish",
+    #     normalize_input=True,
+    #     normalize_inter_layer=True,
+    #     use_deep_supervision=use_ds,
+    # )
     model = network.unet1(
         input_shape_tuple,
         activation_inter_layer="mish",
@@ -149,6 +227,8 @@ def test(config_loc):
     model.load_state_dict(torch.load(model_path, map_location=device))
     model = model.to(device)
     model.eval()
+    total_nb_params = sum(p.numel() for p in model.parameters())
+    print("total number of params: " + str(total_nb_params))
 
     val_transform = A.Compose(
         [
@@ -181,7 +261,12 @@ def test(config_loc):
             labels_one_hot = utils.convert_to_one_hot(labels, device=device)
             # inputs = inputs.unsqueeze(1)  # add channel dimension, but ToTensorV2 already does this'
             if use_ds:
-                predictions, *_ = model(inputs)
+                # predictions, *_ = model(inputs)
+                predictions, ds1, ds2, ds3, ds4 = model(inputs)
+                ds1 = torch.argmax(ds1, dim=1).cpu().numpy()
+                ds2 = torch.argmax(ds2, dim=1).cpu().numpy()
+                ds3 = torch.argmax(ds3, dim=1).cpu().numpy()
+                ds4 = torch.argmax(ds4, dim=1).cpu().numpy()
             else:
                 predictions = model(inputs)
 
@@ -191,7 +276,11 @@ def test(config_loc):
             labels = labels.cpu().numpy().astype(int)
 
             # only keep the largest connected component for each class
-            predictions = keep_largest_component(predictions)
+            # predictions = keep_largest_component(predictions)
+            # predictions = closing(predictions)
+            # print(predictions.shape)
+            # print(np.unique(predictions, return_counts=True))
+            # break
 
             # dice scores
             dice_lv = utils.dice_score(predictions.squeeze(), labels.squeeze(), [1])
@@ -221,6 +310,42 @@ def test(config_loc):
                 dices,
                 plot_folder,
             )
+
+            # code to plot the upsampled deep supervision outputs
+            if use_ds:
+                utils.plot_ds_segmentation(
+                    inputs[0].cpu().numpy().squeeze().T,
+                    labels[0].squeeze().T,
+                    ds1[0].squeeze().T,
+                    f"{i}_ds1.png",
+                    dices,
+                    plot_folder_ds,
+                )
+                utils.plot_ds_segmentation(
+                    inputs[0].cpu().numpy().squeeze().T,
+                    labels[0].squeeze().T,
+                    ds2[0].squeeze().T,
+                    f"{i}_ds2.png",
+                    dices,
+                    plot_folder_ds,
+                )
+                utils.plot_ds_segmentation(
+                    inputs[0].cpu().numpy().squeeze().T,
+                    labels[0].squeeze().T,
+                    ds3[0].squeeze().T,
+                    f"{i}_ds3.png",
+                    dices,
+                    plot_folder_ds,
+                )
+                utils.plot_ds_segmentation(
+                    inputs[0].cpu().numpy().squeeze().T,
+                    labels[0].squeeze().T,
+                    ds4[0].squeeze().T,
+                    f"{i}_ds4.png",
+                    dices,
+                    plot_folder_ds,
+                )
+
             losses.append(loss)
             dice_scores.append(dices)
 
@@ -268,6 +393,16 @@ def test(config_loc):
         ["LV", "Myo", "LA"],
         "boxplot_dices.png",
     )
+
+    raw_scores_file = os.path.join(out_dir, "raw_scores.txt")
+    with open(raw_scores_file, "w") as f:
+        f.write("Dice Scores:\n")
+        for dice in dice_scores:
+            f.write(", ".join(map(str, dice)) + "\n")
+
+        f.write("\nHausdorff Distances:\n")
+        for hausdorf in hausdorf_scores:
+            f.write(", ".join(map(str, hausdorf)) + "\n")
 
     avg_loss = np.mean(losses)
     avg_dice = np.mean(dice_scores)  # avg across all classes

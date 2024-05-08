@@ -68,6 +68,8 @@ def run_model(dataloader, optimizer, model, loss_fn, train=True, device=None, ds
 
         if ds:
             predictions, ds1, ds2, ds3, ds4 = model.forward(inputs)
+            # print(predictions.shape, ds1.shape, ds2.shape, ds3.shape, ds4.shape)
+            # break
         else:
             predictions = model.forward(inputs)  # ["out"]
 
