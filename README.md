@@ -1,7 +1,4 @@
-# masterThesisProject
+# Exploring the state of the art in ultrasound image segmentation
 
-In the current state, this repository contains a basic toturial 
-to preprocess the CAMUS dataset and train a nnU-Net model on it.
-Instructions can be found in [nnunet/usage_instructions.md](nnunet/usage_instructions.md).
-
-In the future, it will contain a basic pipeline to train a U-Net 1 on CAMUS as well.
+This repository contains the code used in my master's thesis project on cardiac ultrasound segmentation. It comprises preprocessing and training pipelines for a basic U-Net and nnU-Net on the CAMUS and HUNT4 datasets.
+Instructions for nnU-Net can be found in [nnunet/usage_instructions.md](nnunet/usage_instructions.md).
