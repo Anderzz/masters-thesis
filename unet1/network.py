@@ -59,7 +59,12 @@ class ConvolutionBlock(nn.Module):
             padding=(kernel_size[0] // 2, kernel_size[1] // 2),
         )
         self.batch_norm1 = (
-            nn.BatchNorm2d(out_channels) if batch_normalization else nn.Identity()
+            # nn.BatchNorm2d(out_channels)
+            # if batch_normalization
+            # else nn.Identity()
+            nn.InstanceNorm2d(out_channels)
+            if batch_normalization
+            else nn.Identity()
         )
         self.activation1 = get_activation(activation)
 
@@ -70,7 +75,12 @@ class ConvolutionBlock(nn.Module):
             padding=(kernel_size[0] // 2, kernel_size[1] // 2),
         )
         self.batch_norm2 = (
-            nn.BatchNorm2d(out_channels) if batch_normalization else nn.Identity()
+            # nn.BatchNorm2d(out_channels)
+            # if batch_normalization
+            # else nn.Identity()
+            nn.InstanceNorm2d(out_channels)
+            if batch_normalization
+            else nn.Identity()
         )
         self.activation2 = get_activation(activation)
 
@@ -175,6 +185,8 @@ class unet1(nn.Module):
             self.ds2 = nn.Conv2d(128, nb_classes, kernel_size=(1, 1))
             self.ds3 = nn.Conv2d(64, nb_classes, kernel_size=(1, 1))
             self.ds4 = nn.Conv2d(32, nb_classes, kernel_size=(1, 1))
+        else:
+            print("Not using deep supervision.")
 
         self.down1 = ConvolutionBlock(
             input_shape[0],
@@ -511,6 +523,7 @@ class unet1_res(nn.Module):
         normalize_inter_layer=False,
         nb_classes=4,
         final_activation="softmax",
+        use_deep_supervision=False,
     ):
         super().__init__()
 

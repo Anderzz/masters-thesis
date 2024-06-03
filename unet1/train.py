@@ -73,6 +73,9 @@ def run_model(dataloader, optimizer, model, loss_fn, train=True, device=None, ds
         else:
             predictions = model.forward(inputs)  # ["out"]
 
+            # # vis
+            # predictions, ds1, ds2, ds3, ds4 = model.forward(inputs)
+
         # Compute the loss and its gradients
         if not train:
             with torch.no_grad():
@@ -179,15 +182,22 @@ def train(config_loc, verbose=True):
     use_ds = config["MODEL"]["DEEP_SUPERVISION"]
     if use_ds:
         loss_fn = get_loss("DICE_DS", device)
+
+    # kødd for visualisering
+    # use_ds = True
+
     # convert string to tuple
     input_shape_tuple = tuple([int(x) for x in input_shape.split(",")])
     model = network.unet1(
         input_shape_tuple,
-        activation_inter_layer="mish",
+        activation_inter_layer="relu",
         normalize_input=True,
         normalize_inter_layer=True,
         use_deep_supervision=use_ds,
     )
+
+    # use_ds = False
+
     # model = network.getDeeplabv3()
     # model = network.unet1_res(
     #     input_shape_tuple, normalize_input=True, normalize_inter_layer=True
@@ -198,9 +208,9 @@ def train(config_loc, verbose=True):
     model = model.to(device)
     train_transform = A.Compose(
         [
-            A.ShiftScaleRotate(
-                shift_limit=0.1, scale_limit=(-0.2, 0.1), rotate_limit=10, p=0.5
-            ),
+            # A.ShiftScaleRotate(
+            #     shift_limit=0.1, scale_limit=(-0.2, 0.1), rotate_limit=10, p=0.5
+            # ),
             # A.RandomGamma(gamma_limit=(85, 115), p=0.5),
             # A.GaussNoise(var_limit=(10.0, 25.0), p=0.2),
             # Blackout(p=0.25),

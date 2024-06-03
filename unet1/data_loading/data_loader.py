@@ -135,8 +135,9 @@ class Hunt4Dataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         X = np.load(self.file_paths[idx].replace("_gt", ""), allow_pickle=True)
         y = np.load(self.file_paths[idx], allow_pickle=True)
-        X = X.astype(np.float32)
-        y = y.astype(np.float32)
+        # print(X.shape, y.shape)
+        X = X.astype(np.float32).transpose(1, 0)
+        y = y.astype(np.float32).transpose(1, 0)
         if self.transform is not None:
             transformed = self.transform(image=X, mask=y)
             X = transformed["image"]

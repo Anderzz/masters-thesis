@@ -54,8 +54,8 @@ def run_model(dataloader, optimizer, model, loss_fn, train=True, device=None, ds
     for i, data in tqdm(enumerate(dataloader), total=len(dataloader)):
         # Every data instance is an input + label pair
         inputs, labels = data
-        inputs = inputs.to(device)
-        labels = labels.to(device)
+        inputs = inputs.to(device)  # .permute(0, 1, 3, 2)
+        labels = labels.to(device)  # .permute(0, 2, 1)
         labels_one_hot = utils.convert_to_one_hot(labels, device=device)
         # inputs = inputs.unsqueeze(1)  # add channel dimension, but ToTensorV2 does this for us
         # Zero your gradients for every batch!
@@ -200,13 +200,14 @@ def train(config_loc, verbose=True):
     model = model.to(device)
     train_transform = A.Compose(
         [
+            A.Resize(256, 256),
             A.ShiftScaleRotate(
                 shift_limit=0.1, scale_limit=(-0.2, 0.1), rotate_limit=10, p=0.5
             ),
-            A.RandomGamma(gamma_limit=(85, 115), p=0.5),
-            A.GaussNoise(var_limit=(10.0, 25.0), p=0.2),
-            Blackout(p=0.25),
-            A.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1, p=0.5),
+            # A.RandomGamma(gamma_limit=(85, 115), p=0.5),
+            # A.GaussNoise(var_limit=(10.0, 25.0), p=0.2),
+            # Blackout(p=0.25),
+            # A.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1, p=0.5),
             ToTensorV2(),
         ]
     )
@@ -233,6 +234,7 @@ def train(config_loc, verbose=True):
     # )
     val_transform = A.Compose(
         [
+            A.Resize(256, 256),
             # A.Normalize(mean=(0.485), std=(0.229)),
             # A.Normalize(mean=(48.6671), std=(53.9987), max_pixel_value=1.0),
             ToTensorV2(),

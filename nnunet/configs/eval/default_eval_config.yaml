@@ -1,8 +1,8 @@
 # nnU-Net dirs:
 INPUT_DIR_IMAGES: "/home/andekje/data/nnUNet_raw/Dataset108_CAMUS_test/imagesTr"
 INPUT_DIR_LABELS: "/home/andekje/data/nnUNet_raw/Dataset108_CAMUS_test/labelsTr"
-INFERENCE_DIR: "/home/andekje/masters-thesis/nnunet/results/Dataset108_CAMUS_test/baseline/pp"
+INFERENCE_DIR: "/home/andekje/masters-thesis/nnunet/results/Dataset108_CAMUS_test/baseline/pp/"
 
 # The directory name where the output plots will be saved. This directory will be created in the CONST.EXPERIMENTS_DIR
 # directory.
-REL_OUT_DIR: "baseline"
+REL_OUT_DIR: "baseline/"

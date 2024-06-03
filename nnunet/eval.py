@@ -64,16 +64,16 @@ def run_eval(config_loc, verbose=True):
     hausdorff_scores = np.array(hausdorff_scores)
     hausdorff_per_class = hausdorff_scores.T
     title_dice_scores = (
-        ("Boxplot of Dice scores per label: \n" "Average LV Dice: ")
+        ("Average Dice scores:\n LV: ")
         + str(np.round(np.mean(all_dices_per_class[0]), 2))
-        + ", Average Myo Dice: "
+        + ", Myo: "
         + str(np.round(np.mean(all_dices_per_class[1]), 2))
-        + ", Average LA Dice: "
+        + ", LA: "
         + str(np.round(np.mean(all_dices_per_class[2]), 2))
         + "\n"
     )
     title_hausdorf_scores = (
-        ("Boxplot of avg Hausdorff distance per label: \n" "LV: ")
+        ("Average Hausdorff distances:\n LV: ")
         + str(np.round(np.mean(hausdorff_per_class[0]), 2))
         + ", MYO: "
         + str(np.round(np.mean(hausdorff_per_class[1]), 2))
@@ -88,6 +88,7 @@ def run_eval(config_loc, verbose=True):
         "Hausdorff distance",
         ["LV", "Myo", "LA"],
         "boxplot_hausdorff.png",
+        metric="hausdorff",
     )
     utils.boxplot(
         all_dices,
@@ -96,10 +97,20 @@ def run_eval(config_loc, verbose=True):
         "Dice score",
         ["LV", "Myo", "LA"],
         "boxplot_dices.png",
+        metric="dice",
     )
     print(
         f"Average dice scores: {np.round(np.mean(all_dices), 3)} | {np.round(np.mean(all_dices, axis=0), 3)}"
     )
+    raw_scores_file = os.path.join(out_dir, "raw_scores.txt")
+    with open(raw_scores_file, "w") as f:
+        f.write("Dice Scores:\n")
+        for dice in all_dices:
+            f.write(", ".join(map(str, dice)) + "\n")
+
+        f.write("\nHausdorff Distances:\n")
+        for hausdorf in hausdorff_scores:
+            f.write(", ".join(map(str, hausdorf)) + "\n")
 
 
 if __name__ == "__main__":

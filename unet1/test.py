@@ -215,9 +215,9 @@ def test(config_loc):
     # )
     model = network.unet1(
         input_shape_tuple,
-        activation_inter_layer="mish",
-        normalize_input=True,
-        normalize_inter_layer=True,
+        activation_inter_layer="relu",
+        normalize_input=False,
+        normalize_inter_layer=False,
         use_deep_supervision=use_ds,
     )
     # model = network.unet1(input_shape_tuple)
@@ -277,7 +277,8 @@ def test(config_loc):
 
             # only keep the largest connected component for each class
             # predictions = keep_largest_component(predictions)
-            # predictions = closing(predictions)
+            # predictions = opening(predictions)
+            predictions = closing(predictions)
             # print(predictions.shape)
             # print(np.unique(predictions, return_counts=True))
             # break
@@ -295,12 +296,12 @@ def test(config_loc):
                     predictions.squeeze(), labels.squeeze(), 2
                 )
                 hausdorf_la = utils.hausdorf(predictions.squeeze(), labels.squeeze(), 3)
+                hausdorf_scores.append([hausdorf_lv, hausdorf_myo, hausdorf_la])
             except:
                 print("Error in hausdorf distance calculation")
-                hausdorf_lv = 0
-                hausdorf_myo = 0
-                hausdorf_la = 0
-            hausdorf_scores.append([hausdorf_lv, hausdorf_myo, hausdorf_la])
+                # hausdorf_lv = 0
+                # hausdorf_myo = 0
+                # hausdorf_la = 0
 
             utils.plot_segmentation(
                 inputs[0].cpu().numpy().squeeze().T,
@@ -311,40 +312,40 @@ def test(config_loc):
                 plot_folder,
             )
 
-            # code to plot the upsampled deep supervision outputs
-            if use_ds:
-                utils.plot_ds_segmentation(
-                    inputs[0].cpu().numpy().squeeze().T,
-                    labels[0].squeeze().T,
-                    ds1[0].squeeze().T,
-                    f"{i}_ds1.png",
-                    dices,
-                    plot_folder_ds,
-                )
-                utils.plot_ds_segmentation(
-                    inputs[0].cpu().numpy().squeeze().T,
-                    labels[0].squeeze().T,
-                    ds2[0].squeeze().T,
-                    f"{i}_ds2.png",
-                    dices,
-                    plot_folder_ds,
-                )
-                utils.plot_ds_segmentation(
-                    inputs[0].cpu().numpy().squeeze().T,
-                    labels[0].squeeze().T,
-                    ds3[0].squeeze().T,
-                    f"{i}_ds3.png",
-                    dices,
-                    plot_folder_ds,
-                )
-                utils.plot_ds_segmentation(
-                    inputs[0].cpu().numpy().squeeze().T,
-                    labels[0].squeeze().T,
-                    ds4[0].squeeze().T,
-                    f"{i}_ds4.png",
-                    dices,
-                    plot_folder_ds,
-                )
+            # # code to plot the upsampled deep supervision outputs
+            # if use_ds:
+            #     utils.plot_ds_segmentation(
+            #         inputs[0].cpu().numpy().squeeze().T,
+            #         labels[0].squeeze().T,
+            #         ds1[0].squeeze().T,
+            #         f"{i}_ds1.png",
+            #         dices,
+            #         plot_folder_ds,
+            #     )
+            #     utils.plot_ds_segmentation(
+            #         inputs[0].cpu().numpy().squeeze().T,
+            #         labels[0].squeeze().T,
+            #         ds2[0].squeeze().T,
+            #         f"{i}_ds2.png",
+            #         dices,
+            #         plot_folder_ds,
+            #     )
+            #     utils.plot_ds_segmentation(
+            #         inputs[0].cpu().numpy().squeeze().T,
+            #         labels[0].squeeze().T,
+            #         ds3[0].squeeze().T,
+            #         f"{i}_ds3.png",
+            #         dices,
+            #         plot_folder_ds,
+            #     )
+            #     utils.plot_ds_segmentation(
+            #         inputs[0].cpu().numpy().squeeze().T,
+            #         labels[0].squeeze().T,
+            #         ds4[0].squeeze().T,
+            #         f"{i}_ds4.png",
+            #         dices,
+            #         plot_folder_ds,
+            #     )
 
             losses.append(loss)
             dice_scores.append(dices)
@@ -359,17 +360,17 @@ def test(config_loc):
     hausdorf_per_class = hausdorf_scores.T
 
     title_dice_scores = (
-        ("Boxplot of Dice scores per label: \n" "Avg LV Dice: ")
+        ("Average Dice scores:\n LV: ")
         + str(np.round(np.mean(dice_per_class[0]), 2))
-        + ", Avg Myo Dice: "
+        + ", Myo: "
         + str(np.round(np.mean(dice_per_class[1]), 2))
-        + ", Avg LA Dice: "
+        + ", LA: "
         + str(np.round(np.mean(dice_per_class[2]), 2))
         + "\n"
     )
 
     title_hausdorf_scores = (
-        ("Boxplot of avg Hausdorff distance per label: \n" "LV: ")
+        ("Average Hausdorff distances:\n LV: ")
         + str(np.round(np.mean(hausdorf_per_class[0]), 2))
         + ", MYO: "
         + str(np.round(np.mean(hausdorf_per_class[1]), 2))
@@ -384,6 +385,7 @@ def test(config_loc):
         "Hausdorff distance",
         ["LV", "Myo", "LA"],
         "boxplot_hausdorff.png",
+        metric="hausdorff",
     )
     utils.boxplot(
         dice_scores,
@@ -392,6 +394,7 @@ def test(config_loc):
         "Dice score",
         ["LV", "Myo", "LA"],
         "boxplot_dices.png",
+        metric="dice",
     )
 
     raw_scores_file = os.path.join(out_dir, "raw_scores.txt")

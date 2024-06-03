@@ -139,9 +139,9 @@ def test(config_loc):
 
     model = network.unet1(
         input_shape_tuple,
-        activation_inter_layer="mish",
-        normalize_input=True,
-        normalize_inter_layer=True,
+        activation_inter_layer="relu",
+        normalize_input=False,
+        normalize_inter_layer=False,
         use_deep_supervision=use_ds,
     )
     # model = network.unet1(input_shape_tuple)
@@ -154,6 +154,7 @@ def test(config_loc):
 
     val_transform = A.Compose(
         [
+            A.Resize(256, 256),
             # A.Normalize(mean=(0.485), std=(0.229)),
             # A.Normalize(mean=(48.6671), std=(53.9987), max_pixel_value=1.0),
             ToTensorV2(),
@@ -175,8 +176,9 @@ def test(config_loc):
         for i, (inputs, labels) in tqdm(
             enumerate(dataloader_test), total=len(dataloader_test)
         ):
-            inputs = inputs.to(device)
-            labels = labels.to(device)
+            # print(inputs.shape, labels.shape)
+            inputs = inputs.to(device)  # .permute(0, 1, 3, 2)
+            labels = labels.to(device)  # .permute(0, 2, 1)
             # n*h*w x n*h*w
             labels_one_hot = utils.convert_to_one_hot(labels, device=device)
             # inputs = inputs.unsqueeze(1)  # add channel dimension, but ToTensorV2 already does this'
@@ -191,7 +193,7 @@ def test(config_loc):
             labels = labels.cpu().numpy().astype(int)
 
             # only keep the largest connected component for each class
-            predictions = keep_largest_component(predictions)
+            # predictions = keep_largest_component(predictions)
 
             # dice scores
             dice_lv = utils.dice_score(predictions.squeeze(), labels.squeeze(), [1])
@@ -200,15 +202,18 @@ def test(config_loc):
             dices = [dice_lv, dice_myo, dice_la]
 
             # hausdorf distances
+            # hausdorf_lv = utils.hausdorf95(predictions.squeeze(), labels.squeeze(), 1)
+            # hausdorf_myo = utils.hausdorf95(predictions.squeeze(), labels.squeeze(), 2)
+            # hausdorf_la = utils.hausdorf95(predictions.squeeze(), labels.squeeze(), 3)
             hausdorf_lv = utils.hausdorf(predictions.squeeze(), labels.squeeze(), 1)
             hausdorf_myo = utils.hausdorf(predictions.squeeze(), labels.squeeze(), 2)
             hausdorf_la = utils.hausdorf(predictions.squeeze(), labels.squeeze(), 3)
             hausdorf_scores.append([hausdorf_lv, hausdorf_myo, hausdorf_la])
 
             utils.plot_segmentation(
-                inputs[0].cpu().numpy().squeeze(),
-                labels[0].squeeze(),
-                predictions[0].squeeze(),
+                inputs[0].cpu().numpy().squeeze().T,
+                labels[0].squeeze().T,
+                predictions[0].squeeze().T,
                 f"{i}.png",
                 dices,
                 plot_folder,
@@ -218,7 +223,16 @@ def test(config_loc):
 
             handle_queue(
                 worst_queue,
-                (loss, (inputs[0].cpu().numpy(), labels[0], predictions[0], dices, i)),
+                (
+                    loss,
+                    (
+                        inputs[0].cpu().numpy(),
+                        labels[0],
+                        predictions[0],
+                        dices,
+                        i,
+                    ),
+                ),
             )
     dice_scores = np.array(dice_scores)
     dice_per_class = dice_scores.T
@@ -226,17 +240,17 @@ def test(config_loc):
     hausdorf_per_class = hausdorf_scores.T
 
     title_dice_scores = (
-        ("Boxplot of Dice scores per label: \n" "Avg LV Dice: ")
+        ("Average Dice scores:\n LV: ")
         + str(np.round(np.mean(dice_per_class[0]), 2))
-        + ", Avg Myo Dice: "
+        + ", Myo: "
         + str(np.round(np.mean(dice_per_class[1]), 2))
-        + ", Avg LA Dice: "
+        + ", LA: "
         + str(np.round(np.mean(dice_per_class[2]), 2))
         + "\n"
     )
 
     title_hausdorf_scores = (
-        ("Boxplot of avg Hausdorff distance per label: \n" "LV: ")
+        ("Average Hausdorff distances:\n LV: ")
         + str(np.round(np.mean(hausdorf_per_class[0]), 2))
         + ", MYO: "
         + str(np.round(np.mean(hausdorf_per_class[1]), 2))
@@ -251,6 +265,7 @@ def test(config_loc):
         "Hausdorff distance",
         ["LV", "Myo", "LA"],
         "boxplot_hausdorff.png",
+        metric="hausdorff",
     )
     utils.boxplot(
         dice_scores,
@@ -259,7 +274,9 @@ def test(config_loc):
         "Dice score",
         ["LV", "Myo", "LA"],
         "boxplot_dices.png",
+        metric="dice",
     )
+    print(f"Average Hausdorff distance: {np.mean(hausdorf_scores)}")
 
     avg_loss = np.mean(losses)
     avg_dice = np.mean(dice_scores)  # avg across all classes

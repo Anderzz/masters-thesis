@@ -124,7 +124,9 @@ def resize_image(
         return numpy_image_resized
 
 
-def boxplot(metric_values, save_dir, title, ylabel, xticks, save_name, show=True):
+def boxplot(
+    metric_values, save_dir, title, ylabel, xticks, save_name, show=True, metric="dice"
+):
     """
     Create boxplot of given metric values and save it to save_dir. The metric can be for example dice scores or
     hausdorff distances.
@@ -142,12 +144,16 @@ def boxplot(metric_values, save_dir, title, ylabel, xticks, save_name, show=True
     ax.set_title(title)
     ax.set_ylabel(ylabel)
     ax.set_xticklabels(xticks)
+    if metric == "dice":
+        ax.set_ylim([0, 1])
+    elif metric == "hausdorff":
+        ax.set_ylim([0, 200])
     # set limit of y-axis to 0-1
     # ax.set_ylim([0,1])
     # remove whitespace
     fig.tight_layout()
     # save plot
-    fig.savefig(os.path.join(save_dir, save_name))
+    fig.savefig(os.path.join(save_dir, save_name), dpi=300)
     if show:
         plt.show()
 

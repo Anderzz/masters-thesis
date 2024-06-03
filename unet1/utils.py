@@ -1,5 +1,5 @@
 import numpy as np
-from medpy.metric.binary import hd
+from medpy.metric.binary import hd, hd95
 import matplotlib.pyplot as plt
 import os
 from PIL import Image
@@ -109,6 +109,18 @@ def hausdorf(seg, gt, k=1):
     return hd(seg == k, gt == k)
 
 
+def hausdorf95(seg, gt, k=1):
+    """
+    Calculate 95th percentile hausdorff distance for given segmentation and ground truth for the given label.
+    Both seg and gt should be numpy arrays with the same shape in label (not one-hot) format.
+    :param seg: predicted segmentation
+    :param gt: ground truth segmentation
+    :param k: label to calculate hausdorff distance for
+    :return: 95th percentile hausdorff distance
+    """
+    return hd95(seg == k, gt == k)
+
+
 def resize_image(
     numpy_img, resize_dim=(256, 256), annotation=False, convert_to_png=True
 ):
@@ -146,7 +158,9 @@ def resize_image(
         return numpy_image_resized
 
 
-def boxplot(metric_values, save_dir, title, ylabel, xticks, save_name, show=True):
+def boxplot(
+    metric_values, save_dir, title, ylabel, xticks, save_name, show=True, metric="dice"
+):
     """
     Create boxplot of given metric values and save it to save_dir. The metric can be for example dice scores or
     hausdorff distances.
@@ -164,12 +178,16 @@ def boxplot(metric_values, save_dir, title, ylabel, xticks, save_name, show=True
     ax.set_title(title)
     ax.set_ylabel(ylabel)
     ax.set_xticklabels(xticks)
+    if metric == "dice":
+        ax.set_ylim([0, 1])
+    elif metric == "hausdorff":
+        ax.set_ylim([0, 200])
     # set limit of y-axis to 0-1
     # ax.set_ylim([0, 1])
     # remove whitespace
     fig.tight_layout()
     # save plot
-    fig.savefig(os.path.join(save_dir, save_name))
+    fig.savefig(os.path.join(save_dir, save_name), dpi=300)
     if show:
         plt.show()
 
